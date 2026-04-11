@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+
+# Capacitor
+android/
+ios/
+
+# Prisma
+apps/api/prisma/*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo

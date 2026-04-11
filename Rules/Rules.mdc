@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+---
+
+- Variables y nombre de métodos en inglés
+- Usa TDD para el desarrollo (siempre ejecuta pruebas y autocorrige errores)
+- Al desarrollar una funcionalidad debes marcarla como listo en su documentación
+  correspondiente.
+- Lee ./docs para entender estructura del proyecto (ver docs/PLAN-CONSTITUTIVO.md)
+- Si se pide una funcionalidad nueva debes incluirla en ./docs y ./README.md
+  según aplique
+- En el frontend el idioma que lee el usuario es español
+- Para componentes del frontend siempre prioriza usar shadcn/ui (React) o
+  construir custom componentes a partir de él. Docs en https://ui.shadcn.com/docs
+- El frontend debe ser estructurado en componentes. No podemos tener un page
+  super largo, sino más bien uno con varios componentes donde cada uno cumpla su
+  función.
+- Los nombres de componentes, métodos y funciones deben ser en inglés
+- Usamos React Router para las rutas del frontend
+- Los métodos y componentes deben ser reutilizables para cumplir con DRY "Don't
+  repeat yourself"
+- Stack: React + Vite + TypeScript (frontend), NestJS + Prisma (backend),
+  PostgreSQL, Redis, WorkOS (auth), Capacitor (móvil), Dokploy (deploy)
