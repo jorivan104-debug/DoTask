@@ -21,11 +21,16 @@ services:
     build:
       context: .
       dockerfile: ./apps/api/Dockerfile
+    networks:
+      - default
+      - dokploy-network
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
       - "traefik.http.routers.api.rule=Host(`api.app-sprint.com`)"
       - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.api.service=api"
       - "traefik.http.services.api.loadbalancer.server.port=3000"
     depends_on:
       - postgres
@@ -44,12 +49,21 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
-    ports:
-      - "8080:80"
+      dockerfile: ./apps/web/Dockerfile
+    expose:
+      - "80"
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - "traefik.docker.network=dokploy-network"
     depends_on:
       - api
 
 volumes:
   pgdata:
   redisdata:
+
+networks:
+  dokploy-network:
+    external: true
