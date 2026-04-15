@@ -50,8 +50,6 @@ export class AuthService {
       },
     });
 
-    await this.ensureDefaultWorkspace(user.id);
-
     return user;
   }
 
@@ -59,40 +57,5 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new UnauthorizedException();
     return user;
-  }
-
-  private async ensureDefaultWorkspace(userId: string) {
-    const existing = await this.prisma.workspaceMember.findFirst({
-      where: { userId },
-    });
-    if (existing) return;
-
-    await this.prisma.workspace.create({
-      data: {
-        name: 'Personal',
-        createdBy: userId,
-        members: {
-          create: { userId, role: 'owner' },
-        },
-        projects: {
-          create: {
-            name: 'Mi Proyecto',
-            sortOrder: 0,
-            milestones: {
-              create: {
-                name: 'Backlog',
-                sortOrder: 0,
-                taskLists: {
-                  create: {
-                    name: 'Tareas',
-                    sortOrder: 0,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
   }
 }

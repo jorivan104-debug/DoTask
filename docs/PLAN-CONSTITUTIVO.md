@@ -213,7 +213,7 @@ erDiagram
 | `created_by` | `uuid` | FK → `users(id)` |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-**Regla de producto**: en el primer login exitoso vía WorkOS (upsert de `users`), crear un workspace "Personal", fila `workspace_members` con rol `owner`, un proyecto por defecto, un hito inicial ("Backlog") y opcionalmente una lista vacía.
+**Regla de producto (onboarding explícito)**: el login vía WorkOS solo hace upsert del usuario. **No se crea ningún workspace automáticamente.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/hito/lista), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`).
 
 #### `workspace_members`
 
@@ -298,6 +298,25 @@ Restricción única: `(workspace_id, user_id)`. Índice en `(user_id)`.
 | `created_at` | `timestamptz` | |
 
 Índice: `(task_id, created_at)`.
+
+#### `workspace_invitations`
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | `uuid` | PK |
+| `workspace_id` | `uuid` | FK → `workspaces(id)` ON DELETE CASCADE |
+| `token_hash` | `text` | Único; SHA-256 del código de invitación |
+| `role` | `text` | Rol asignado al aceptar (`member` por defecto) |
+| `invited_by_user_id` | `uuid` | FK → `users(id)` |
+| `expires_at` | `timestamptz` | 7 días desde creación |
+| `consumed_at` | `timestamptz` | Nullable; fecha de aceptación |
+| `created_at` | `timestamptz` | |
+
+Índice: `(workspace_id)`. Único en `token_hash`.
+
+Endpoints:
+- `POST /v1/workspaces/:wid/invitations` — solo owners; devuelve código de un solo uso.
+- `POST /v1/invitations/accept` — body `{ code }`; crea membresía y marca invitación consumida.
 
 ### 4.5 Enumeraciones
 
