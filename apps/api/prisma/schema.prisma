@@ -137,7 +137,7 @@ model TaskComment {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([taskId, createdAt])
   @@map("task_comments")
