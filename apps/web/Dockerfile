@@ -8,6 +8,9 @@ RUN npm install --workspace=apps/web --include-workspace-root
 
 COPY packages/shared/ packages/shared/
 COPY apps/web/ apps/web/
+
+ARG VITE_API_URL=https://api.app-sprint.com
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build --workspace=apps/web
 
 FROM nginx:alpine

@@ -50,6 +50,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.app-sprint.com}
     expose:
       - "80"
     networks:
