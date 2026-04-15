@@ -17,7 +17,6 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
 COPY --from=build /app/apps/api/prisma ./prisma
-COPY --from=build /app/apps/api/node_modules/.prisma ./node_modules/.prisma
 
 ENV NODE_ENV=production
 EXPOSE 3000
