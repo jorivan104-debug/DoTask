@@ -22,7 +22,7 @@ DoTask/
 │   └── api/          # Backend NestJS + Prisma
 ├── packages/
 │   └── shared/       # Tipos y validaciones compartidas (Zod)
-├── docs/             # Plan Constitutivo y documentación
+├── docs/             # Plan constitutivo, despliegue Dokploy (DEPLOY-DOKPLOY.md)
 ├── docker-compose.yml
 └── README.md
 ```
@@ -70,3 +70,7 @@ Workspace → Project → Milestone → TaskList → Task
 ```
 
 Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle completo de arquitectura, base de datos y decisiones técnicas.
+
+## Despliegue (Dokploy / Docker)
+
+La configuración aplicada en el repo (Compose, Traefik, variables, builds con `VITE_API_URL`, migraciones Prisma, red `dokploy-network`) está descrita en **[docs/DEPLOY-DOKPLOY.md](docs/DEPLOY-DOKPLOY.md)**.
