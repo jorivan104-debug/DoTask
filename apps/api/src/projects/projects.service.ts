@@ -1,11 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WorkspacesService } from '../workspaces/workspaces.service';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private workspaces: WorkspacesService,
+  ) {}
 
-  findByWorkspace(workspaceId: string) {
+  async findByWorkspace(workspaceId: string) {
+    await this.workspaces.ensureDefaultHierarchy(workspaceId);
     return this.prisma.project.findMany({
       where: { workspaceId },
       orderBy: { sortOrder: 'asc' },

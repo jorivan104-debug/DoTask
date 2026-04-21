@@ -92,7 +92,14 @@ Workspace → Project → Milestone (hito) → TaskList → Task
 - Cada hito contiene listas de tareas.
 - Las tareas pertenecen a una lista concreta.
 
+**Invariante de producto (semilla mínima):** todo workspace válido para uso en la app debe poder listar al menos **una** cadena `Proyecto → Hito → Lista` sin que el usuario tenga que crearla a mano. El backend lo garantiza así:
+
+1. **`POST /v1/workspaces`**: al crear un espacio, se inserta en la misma operación (transacción) la semilla por defecto: proyecto **Mi Proyecto**, hito **Backlog**, lista **Tareas** (orden `sort_order = 0` en cada nivel).
+2. **`GET /v1/workspaces/:wid/projects`**: si el espacio existiera sin proyectos (p. ej. datos legados, scripts de aprovisionamiento o un workspace creado fuera de este flujo), antes de devolver la lista el API ejecuta una **reparación idempotente**: solo si no hay proyectos, crea esa misma jerarquía mínima. Así el diagrama ER (workspace con muchos projects) sigue siendo cierto en modelo de datos, pero en UX el usuario nunca se queda sin rama para crear tareas.
+
 ### 4.3 Diagrama entidad-relación
+
+El diagrama refleja el **modelo relacional** (cardinalidades máximas). No muestra reglas de negocio dinámicas: en la práctica, DoTask asegura que cada workspace tenga al menos un proyecto (y debajo hito y lista) mediante la semilla descrita en §4.2.
 
 ```mermaid
 erDiagram
@@ -188,6 +195,23 @@ erDiagram
   }
 ```
 
+#### Flujo de la semilla (creación y reparación)
+
+```mermaid
+flowchart LR
+  subgraph crear["Crear espacio"]
+    A["POST /v1/workspaces"] --> B["Transacción: workspace + miembro"]
+    B --> C["ensureDefaultHierarchy"]
+    C --> D["Proyecto + hito + lista por defecto"]
+  end
+  subgraph leer["Listar proyectos"]
+    E["GET .../projects"] --> F{"¿count proyectos = 0?"}
+    F -->|Sí| C
+    F -->|No| G["Devolver proyectos"]
+    D --> G
+  end
+```
+
 ### 4.4 Tablas y columnas (detalle)
 
 #### `users`
@@ -213,7 +237,7 @@ erDiagram
 | `created_by` | `uuid` | FK → `users(id)` |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-**Regla de producto (onboarding explícito)**: el login vía WorkOS solo hace upsert del usuario. **No se crea ningún workspace automáticamente.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/hito/lista), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`).
+**Regla de producto (onboarding explícito)**: el login vía WorkOS solo hace upsert del usuario. **No se crea ningún workspace automáticamente en el flujo de callback de este repositorio.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/hito/lista en transacción), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`). Si en despliegue se añade un workspace por otros medios (script, otro servicio) y quedara vacío de proyectos, el primer `GET /v1/workspaces/:wid/projects` aplicará la misma semilla (ver §4.2).
 
 #### `workspace_members`
 

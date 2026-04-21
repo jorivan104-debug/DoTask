@@ -1,9 +1,38 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
+import type { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class WorkspacesService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Si el workspace no tiene proyectos, crea la jerarquía mínima del producto
+   * (un proyecto, un hito, una lista). Idempotente: no hace nada si ya hay proyectos.
+   */
+  async ensureDefaultHierarchy(
+    workspaceId: string,
+    db: Pick<PrismaClient, 'project'> = this.prisma,
+  ): Promise<void> {
+    const count = await db.project.count({ where: { workspaceId } });
+    if (count > 0) return;
+    await db.project.create({
+      data: {
+        workspaceId,
+        name: 'Mi Proyecto',
+        sortOrder: 0,
+        milestones: {
+          create: {
+            name: 'Backlog',
+            sortOrder: 0,
+            taskLists: {
+              create: { name: 'Tareas', sortOrder: 0 },
+            },
+          },
+        },
+      },
+    });
+  }
 
   findAllForUser(userId: string) {
     return this.prisma.workspace.findMany({
@@ -32,27 +61,16 @@ export class WorkspacesService {
   }
 
   create(name: string, userId: string) {
-    return this.prisma.workspace.create({
-      data: {
-        name,
-        createdBy: userId,
-        members: { create: { userId, role: 'owner' } },
-        projects: {
-          create: {
-            name: 'Mi Proyecto',
-            sortOrder: 0,
-            milestones: {
-              create: {
-                name: 'Backlog',
-                sortOrder: 0,
-                taskLists: {
-                  create: { name: 'Tareas', sortOrder: 0 },
-                },
-              },
-            },
-          },
+    return this.prisma.$transaction(async (tx) => {
+      const ws = await tx.workspace.create({
+        data: {
+          name,
+          createdBy: userId,
+          members: { create: { userId, role: 'owner' } },
         },
-      },
+      });
+      await this.ensureDefaultHierarchy(ws.id, tx);
+      return tx.workspace.findUniqueOrThrow({ where: { id: ws.id } });
     });
   }
 }
