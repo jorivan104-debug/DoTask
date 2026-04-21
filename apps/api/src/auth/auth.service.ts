@@ -1,36 +1,71 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WorkOS } from '@workos-inc/node';
 import { PrismaService } from '../prisma/prisma.service';
 
+const DEV_WORKOS_USER_ID = 'dev_local_dotask';
+
 @Injectable()
 export class AuthService {
-  private workos: WorkOS;
-  private clientId: string;
-  private redirectUri: string;
-
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
-  ) {
-    this.workos = new WorkOS(this.config.getOrThrow('WORKOS_API_KEY'));
-    this.clientId = this.config.getOrThrow('WORKOS_CLIENT_ID');
-    this.redirectUri = this.config.getOrThrow('WORKOS_REDIRECT_URI');
+  ) {}
+
+  isDevLoginEnabled(): boolean {
+    if (this.config.get('NODE_ENV') === 'production') return false;
+    return this.config.get('DOTASK_DEV_LOGIN') === 'true';
+  }
+
+  private workos(): WorkOS {
+    return new WorkOS(this.config.getOrThrow('WORKOS_API_KEY'));
   }
 
   getAuthorizationUrl(): string {
-    return this.workos.userManagement.getAuthorizationUrl({
+    const clientId = this.config.getOrThrow('WORKOS_CLIENT_ID');
+    const redirectUri = this.config.getOrThrow('WORKOS_REDIRECT_URI');
+    return this.workos().userManagement.getAuthorizationUrl({
       provider: 'authkit',
-      clientId: this.clientId,
-      redirectUri: this.redirectUri,
+      clientId,
+      redirectUri,
+    });
+  }
+
+  async devLogin(password: string) {
+    if (!this.isDevLoginEnabled()) throw new NotFoundException();
+
+    const expected = this.config.get<string>('DOTASK_DEV_LOGIN_PASSWORD');
+    if (!expected || password !== expected) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const email = this.config.get('DOTASK_DEV_LOGIN_EMAIL', 'dev@dotask.local');
+    const displayName = this.config.get(
+      'DOTASK_DEV_LOGIN_NAME',
+      'Usuario local (dev)',
+    );
+
+    return this.prisma.user.upsert({
+      where: { workosUserId: DEV_WORKOS_USER_ID },
+      update: { email, displayName },
+      create: {
+        workosUserId: DEV_WORKOS_USER_ID,
+        email,
+        displayName,
+      },
     });
   }
 
   async handleCallback(code: string) {
+    const clientId = this.config.getOrThrow('WORKOS_CLIENT_ID');
     const { user: workosUser } =
-      await this.workos.userManagement.authenticateWithCode({
+      await this.workos().userManagement.authenticateWithCode({
         code,
-        clientId: this.clientId,
+        clientId,
       });
 
     const user = await this.prisma.user.upsert({

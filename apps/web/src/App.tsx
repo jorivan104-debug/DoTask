@@ -26,9 +26,23 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function WorkspaceGate() {
-  const { data: workspaces, isLoading } = useWorkspaces();
+  const {
+    data: workspaces,
+    isPending,
+    isFetching,
+    isError,
+  } = useWorkspaces();
 
-  if (isLoading) {
+  // Con lista vacía en caché, isLoading es false durante el refetch (v5); hay que
+  // esperar o se redirige otra vez a /onboarding antes de ver el workspace nuevo.
+  const waitingForWorkspaces =
+    isPending || (isFetching && (workspaces?.length ?? 0) === 0);
+
+  if (isError) {
+    return <DashboardPage />;
+  }
+
+  if (waitingForWorkspaces) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <span className="text-gray-400">Cargando espacios...</span>
@@ -36,7 +50,7 @@ function WorkspaceGate() {
     );
   }
 
-  if (!workspaces || workspaces.length === 0) {
+  if (!workspaces?.length) {
     return <Navigate to="/onboarding" replace />;
   }
 

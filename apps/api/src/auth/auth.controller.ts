@@ -1,6 +1,8 @@
 import {
+  Body,
   Controller,
   Get,
+  Post,
   Query,
   Res,
   Req,
@@ -21,6 +23,27 @@ export class AuthController {
     private auth: AuthService,
     private config: ConfigService,
   ) {}
+
+  @Get('dev-status')
+  devStatus() {
+    return { devLogin: this.auth.isDevLoginEnabled() };
+  }
+
+  @Post('dev-login')
+  async devLogin(
+    @Body() body: { password?: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.auth.devLogin(body.password ?? '');
+    res.cookie(SESSION_COOKIE, user.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: COOKIE_MAX_AGE,
+      path: '/',
+    });
+    return { ok: true };
+  }
 
   @Get('login')
   login(@Res() res: Response) {
