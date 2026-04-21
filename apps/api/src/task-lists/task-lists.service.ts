@@ -21,8 +21,15 @@ export class TaskListsService {
   }
 
   create(milestoneId: string, data: { name: string }) {
-    return this.prisma.taskList.create({
-      data: { ...data, milestoneId },
+    return this.prisma.$transaction(async (tx) => {
+      const maxOrder = await tx.taskList.aggregate({
+        where: { milestoneId },
+        _max: { sortOrder: true },
+      });
+      const sortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+      return tx.taskList.create({
+        data: { name: data.name, milestoneId, sortOrder },
+      });
     });
   }
 

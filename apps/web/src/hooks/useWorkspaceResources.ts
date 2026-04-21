@@ -104,6 +104,48 @@ export function useTasks(
   });
 }
 
+export function useCreateProject(workspaceId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiFetch<ProjectDto>(`/v1/workspaces/${workspaceId}/projects`, {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['workspace', workspaceId] });
+    },
+  });
+}
+
+export function useCreateTaskList(
+  workspaceId: string | undefined,
+  projectId: string | undefined,
+  milestoneId: string | undefined,
+) {
+  const qc = useQueryClient();
+  const listsKey = [
+    'workspace',
+    workspaceId,
+    'project',
+    projectId,
+    'milestone',
+    milestoneId,
+    'lists',
+  ] as const;
+
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiFetch<TaskListDto>(
+        `/v1/workspaces/${workspaceId}/projects/${projectId}/milestones/${milestoneId}/lists`,
+        { method: 'POST', body: JSON.stringify({ name }) },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [...listsKey] });
+    },
+  });
+}
+
 export function useCreateTask(
   workspaceId: string | undefined,
   projectId: string | undefined,

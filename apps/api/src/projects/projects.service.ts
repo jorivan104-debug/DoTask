@@ -26,8 +26,31 @@ export class ProjectsService {
   }
 
   create(workspaceId: string, data: { name: string; description?: string | null }) {
-    return this.prisma.project.create({
-      data: { ...data, workspaceId },
+    return this.prisma.$transaction(async (tx) => {
+      const maxOrder = await tx.project.aggregate({
+        where: { workspaceId },
+        _max: { sortOrder: true },
+      });
+      const sortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+      const project = await tx.project.create({
+        data: {
+          name: data.name,
+          description: data.description ?? null,
+          workspaceId,
+          sortOrder,
+        },
+      });
+      await tx.milestone.create({
+        data: {
+          projectId: project.id,
+          name: 'Backlog',
+          sortOrder: 0,
+          taskLists: {
+            create: { name: 'Tareas', sortOrder: 0 },
+          },
+        },
+      });
+      return project;
     });
   }
 
