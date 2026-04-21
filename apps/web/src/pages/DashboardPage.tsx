@@ -10,7 +10,12 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">DoTask</h1>
+          <Link
+            to="/"
+            className="text-xl font-bold text-gray-900 hover:text-gray-700"
+          >
+            DoTask
+          </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.displayName}</span>
             <button
@@ -55,12 +60,17 @@ export default function DashboardPage() {
         {!isLoading && !isError && workspaces && workspaces.length > 0 && (
           <ul className="grid gap-3 sm:grid-cols-2">
             {workspaces.map((ws) => (
-              <li
-                key={ws.id}
-                className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-              >
-                <p className="font-medium text-gray-900">{ws.name}</p>
-                <p className="mt-1 font-mono text-xs text-gray-400">{ws.id}</p>
+              <li key={ws.id}>
+                <Link
+                  to={`/workspaces/${ws.id}`}
+                  className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md"
+                >
+                  <p className="font-medium text-gray-900">{ws.name}</p>
+                  <p className="mt-1 font-mono text-xs text-gray-400">{ws.id}</p>
+                  <p className="mt-3 text-sm font-medium text-blue-600">
+                    Abrir espacio →
+                  </p>
+                </Link>
               </li>
             ))}
           </ul>

@@ -1,10 +1,17 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuth } from './hooks/useAuth';
 import { useWorkspaces } from './hooks/useWorkspaces';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import OnboardingPage from './pages/OnboardingPage';
+import WorkspaceBoardPage from './pages/WorkspaceBoardPage';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -54,7 +61,7 @@ function WorkspaceGate() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  return <DashboardPage />;
+  return <Outlet />;
 }
 
 export default function App() {
@@ -72,13 +79,20 @@ export default function App() {
             }
           />
           <Route
-            path="/*"
+            path="/"
             element={
               <AuthGate>
                 <WorkspaceGate />
               </AuthGate>
             }
-          />
+          >
+            <Route index element={<DashboardPage />} />
+            <Route
+              path="workspaces/:workspaceId"
+              element={<WorkspaceBoardPage />}
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
