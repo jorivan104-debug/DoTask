@@ -20,6 +20,7 @@ export class ProjectsService {
   async findOneOrFail(id: string, workspaceId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id, workspaceId },
+      include: { links: { orderBy: { sortOrder: 'asc' } } },
     });
     if (!project) throw new NotFoundException('Project not found');
     return project;

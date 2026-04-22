@@ -14,6 +14,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import WorkspaceLayout from './components/workspace/WorkspaceLayout';
 import WorkspaceIndexRedirect from './pages/WorkspaceIndexRedirect';
 import WorkspaceTaskBoardPage from './pages/WorkspaceTaskBoardPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -91,6 +92,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="workspaces/:workspaceId" element={<WorkspaceLayout />}>
               <Route index element={<WorkspaceIndexRedirect />} />
+              <Route path="p/:projectId" element={<ProjectDetailPage />} />
               <Route
                 path="p/:projectId/m/:milestoneId/l/:listId"
                 element={<WorkspaceTaskBoardPage />}

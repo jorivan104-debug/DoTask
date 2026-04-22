@@ -63,11 +63,26 @@ model Project {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace  Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   milestones Milestone[]
+  links      ProjectLink[]
 
   @@index([workspaceId, sortOrder])
   @@map("projects")
+}
+
+model ProjectLink {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  label     String
+  url       String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sortOrder])
+  @@map("project_links")
 }
 
 model Milestone {

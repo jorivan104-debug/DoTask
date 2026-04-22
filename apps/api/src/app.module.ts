@@ -9,6 +9,7 @@ import { TaskListsModule } from './task-lists/task-lists.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CommentsModule } from './comments/comments.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { ProjectLinksModule } from './project-links/project-links.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { InvitationsModule } from './invitations/invitations.module';
     TasksModule,
     CommentsModule,
     InvitationsModule,
+    ProjectLinksModule,
   ],
 })
 export class AppModule {}

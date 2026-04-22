@@ -8,7 +8,9 @@ export default function WorkspaceLayout() {
   const boardMatch = useMatch(
     '/workspaces/:workspaceId/p/:projectId/m/:milestoneId/l/:listId',
   );
-  const projectId = boardMatch?.params.projectId;
+  const detailMatch = useMatch('/workspaces/:workspaceId/p/:projectId');
+  const projectId =
+    boardMatch?.params.projectId ?? detailMatch?.params.projectId;
   const milestoneId = boardMatch?.params.milestoneId;
   const { user, logout } = useAuth();
 
