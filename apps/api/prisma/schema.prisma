@@ -9,7 +9,9 @@ datasource db {
 
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workosUserId String   @unique @map("workos_user_id")
+  /// Identificador estable de la cuenta de Google (`sub` del id_token). Nulo solo
+  /// para cuentas aún no vinculadas (creadas antes del cambio) o el usuario de desarrollo.
+  googleSub    String?  @unique @map("google_sub")
   email        String   @unique @db.Citext
   displayName  String   @map("display_name")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()

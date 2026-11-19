@@ -52,6 +52,9 @@ describe('API (e2e)', () => {
 
   beforeAll(async () => {
     process.env.SESSION_SECRET = 'e2e-secret-'.padEnd(48, 'x');
+    process.env.GOOGLE_CLIENT_ID = 'e2e.apps.googleusercontent.com';
+    process.env.GOOGLE_CLIENT_SECRET = 'e2e-secret';
+    process.env.GOOGLE_REDIRECT_URI = 'http://localhost:3000/v1/auth/callback';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)
@@ -70,6 +73,31 @@ describe('API (e2e)', () => {
     expect(res.status).toBe(200);
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['content-security-policy']).toBeDefined();
+  });
+
+  describe('login con Google', () => {
+    it('redirige a Google y deja una cookie temporal httpOnly con el state', async () => {
+      const res = await request(app.getHttpServer()).get('/v1/auth/login').expect(302);
+      const location = new URL(res.headers.location);
+      expect(location.hostname).toBe('accounts.google.com');
+      const cookie = ([] as string[]).concat(res.headers['set-cookie']).find((c) => c.startsWith('dotask_oauth='));
+      expect(cookie).toMatch(/HttpOnly/i);
+      expect(cookie).toMatch(/Max-Age=600/);
+    });
+
+    it('vuelve a /login?error=google si el state no coincide, sin crear sesión', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/v1/auth/callback?code=abc&state=falso')
+        .expect(302);
+      expect(res.headers.location).toBe('http://localhost:5173/login?error=google');
+      const cookies = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
+      expect(cookies.some((c) => c.startsWith(`${SESSION_COOKIE}=v1.`))).toBe(false);
+    });
+
+    it('vuelve a /login?error=cancelado si el usuario cancela en Google', async () => {
+      const res = await request(app.getHttpServer()).get('/v1/auth/callback?error=access_denied').expect(302);
+      expect(res.headers.location).toBe('http://localhost:5173/login?error=cancelado');
+    });
   });
 
   it('rechaza la cookie antigua con el UUID en claro', async () => {

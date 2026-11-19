@@ -41,15 +41,12 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://dotask:${POSTGRES_PASSWORD:-dotask}@postgres:5432/dotask?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
-      WORKOS_API_KEY: ${WORKOS_API_KEY}
-      WORKOS_CLIENT_ID: ${WORKOS_CLIENT_ID}
-      WORKOS_COOKIE_PASSWORD: ${WORKOS_COOKIE_PASSWORD}
-      WORKOS_REDIRECT_URI: ${WORKOS_REDIRECT_URI}
-      # Firma de la cookie de sesión (48+ caracteres). Si falta se usa WORKOS_COOKIE_PASSWORD.
-      SESSION_SECRET: ${SESSION_SECRET:-}
-      # Opcional, para el conector MCP de Claude (plan, fase 2.9): dominio de AuthKit.
-      WORKOS_AUTHKIT_DOMAIN: ${WORKOS_AUTHKIT_DOMAIN:-}
-      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-}
+      # Inicio de sesión con Google (Google Cloud Console → Credenciales → ID de cliente OAuth).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://api.app-sprint.com/v1/auth/callback}
+      # Firma de la cookie de sesión, obligatoria (48+ caracteres aleatorios).
+      SESSION_SECRET: ${SESSION_SECRET}
 
   web:
     build:

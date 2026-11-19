@@ -5,7 +5,7 @@ export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
-  /** Cómo llegó la credencial: cookie de la web o token Bearer (conector MCP). */
+  /** Cómo llegó la credencial. `bearer` se reserva para el conector MCP (Fase 3). */
   via: 'cookie' | 'bearer';
 }
 

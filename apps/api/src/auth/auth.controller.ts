@@ -4,20 +4,24 @@ import {
   Get,
   Post,
   Query,
+  Req,
   Res,
   UseGuards,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import { Response, CookieOptions } from 'express';
+import type { Request, Response, CookieOptions } from 'express';
 import { devLoginSchema } from '@dotask/shared';
-import { AuthService } from './auth.service';
+import { AuthService, PendingLogin } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { SessionService, SESSION_COOKIE, SESSION_TTL_MS } from './session.service';
 import { CurrentUser, AuthUser } from './current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { STRICT_THROTTLE } from '../common/throttle';
+
+/** Cookie temporal con `state` y verificador PKCE mientras el usuario está en Google. */
+export const OAUTH_COOKIE = 'dotask_oauth';
+const OAUTH_TTL_MS = 10 * 60 * 1000;
 
 @Controller('v1/auth')
 export class AuthController {
@@ -43,18 +47,39 @@ export class AuthController {
     return { ok: true };
   }
 
+  /** Redirige a la pantalla de consentimiento de Google. */
   @Get('login')
-  login(@Res() res: Response) {
-    res.redirect(this.auth.getAuthorizationUrl());
+  async login(@Res() res: Response) {
+    const { url, pending } = await this.auth.startGoogleLogin();
+    res.cookie(OAUTH_COOKIE, this.sessions.sealJson(pending, OAUTH_TTL_MS), {
+      ...this.cookieOptions(),
+      maxAge: OAUTH_TTL_MS,
+    });
+    res.redirect(url);
   }
 
+  /** Google vuelve aquí con `code` y `state`. Cualquier fallo lleva a /login?error=… */
   @Get('callback')
-  async callback(@Query('code') code: string, @Res() res: Response) {
-    if (!code) throw new UnauthorizedException('Missing code');
+  async callback(
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Query('error') error: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const pending = this.sessions.openJson<PendingLogin>(req.cookies?.[OAUTH_COOKIE]);
+    res.clearCookie(OAUTH_COOKIE, this.cookieOptions());
 
-    const user = await this.auth.handleCallback(code);
-    this.setSessionCookie(res, user.id);
-    res.redirect(this.frontendUrl());
+    if (error || !code || !state) {
+      return res.redirect(`${this.frontendUrl()}/login?error=${error === 'access_denied' ? 'cancelado' : 'google'}`);
+    }
+    try {
+      const user = await this.auth.handleGoogleCallback(code, state, pending);
+      this.setSessionCookie(res, user.id);
+      return res.redirect(this.frontendUrl());
+    } catch {
+      return res.redirect(`${this.frontendUrl()}/login?error=google`);
+    }
   }
 
   @Get('me')

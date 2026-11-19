@@ -2,8 +2,14 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { apiFetch, ApiError } from '../lib/api';
 
+const LOGIN_ERRORS: Record<string, string> = {
+  cancelado: 'Cancelaste el inicio de sesión con Google.',
+  google: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
+};
+
 export default function LoginPage() {
   const { login } = useAuth();
+  const loginError = LOGIN_ERRORS[new URLSearchParams(window.location.search).get('error') ?? ''];
   const [devLoginEnabled, setDevLoginEnabled] = useState(false);
   const [devPassword, setDevPassword] = useState('');
   const [devBusy, setDevBusy] = useState(false);
@@ -45,11 +51,16 @@ export default function LoginPage() {
             Gestión de tareas en equipo
           </p>
         </div>
+        {loginError && (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {loginError}
+          </p>
+        )}
         <button
           onClick={login}
-          className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
-          Iniciar sesión
+          Continuar con Google
         </button>
 
         {devLoginEnabled && (
@@ -81,7 +92,7 @@ export default function LoginPage() {
               disabled={devBusy || !devPassword.trim()}
               className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50"
             >
-              {devBusy ? 'Entrando…' : 'Entrar sin WorkOS'}
+              {devBusy ? 'Entrando…' : 'Entrar sin Google'}
             </button>
           </form>
         )}
