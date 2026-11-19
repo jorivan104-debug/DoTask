@@ -9,12 +9,16 @@ RUN npm install --workspace=apps/api --include-workspace-root
 COPY packages/shared/ packages/shared/
 COPY apps/api/ apps/api/
 RUN cd apps/api && npx prisma generate
+# `prebuild` del API compila primero packages/shared (esquemas Zod compartidos).
 RUN npm run build --workspace=apps/api
 
 FROM node:20-alpine
 WORKDIR /app
 
 COPY --from=build /app/node_modules ./node_modules
+# node_modules/@dotask/shared es un enlace a ../../packages/shared: se copia su build.
+COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/apps/api/dist ./dist
 COPY --from=build /app/apps/api/prisma ./prisma
 

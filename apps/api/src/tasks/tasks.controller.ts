@@ -6,11 +6,18 @@ import {
   Delete,
   Body,
   Param,
-  Req,
+  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  createTaskSchema,
+  updateTaskSchema,
+  type CreateTaskInput,
+  type UpdateTaskInput,
+} from '@dotask/shared';
 import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { ProjectsService } from '../projects/projects.service';
 import { MilestonesService } from '../milestones/milestones.service';
@@ -28,13 +35,8 @@ export class TasksController {
     private taskLists: TaskListsService,
   ) {}
 
-  private async assertAccess(
-    wid: string,
-    pid: string,
-    mid: string,
-    lid: string,
-    userId: string,
-  ) {
+  /** Toda ruta de tareas valida la cadena completa espacio → proyecto → hito → lista. */
+  private async assertAccess(wid: string, pid: string, mid: string, lid: string, userId: string) {
     await this.workspaces.assertMembership(wid, userId);
     await this.projects.findOneOrFail(pid, wid);
     await this.milestones.findOneOrFail(mid, pid);
@@ -43,44 +45,66 @@ export class TasksController {
 
   @Get()
   async findAll(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('mid') mid: string,
-    @Param('lid') lid: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('lid', ParseUUIDPipe) lid: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, mid, lid, (req as any).user.id);
+    await this.assertAccess(wid, pid, mid, lid, user.id);
     return this.service.findByList(lid);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.service.findOneOrFail(id);
+  async findOne(
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('lid', ParseUUIDPipe) lid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    await this.assertAccess(wid, pid, mid, lid, user.id);
+    return this.service.findOneOrFail(id, lid);
   }
 
   @Post()
   async create(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('mid') mid: string,
-    @Param('lid') lid: string,
-    @Body() body: Record<string, any>,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('lid', ParseUUIDPipe) lid: string,
+    @Body(new ZodValidationPipe(createTaskSchema)) body: CreateTaskInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, mid, lid, (req as any).user.id);
-    return this.service.create(lid, body as any);
+    await this.assertAccess(wid, pid, mid, lid, user.id);
+    return this.service.create(lid, wid, body);
   }
 
   @Patch(':id')
   async update(
-    @Param('id') id: string,
-    @Body() body: Record<string, any>,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('lid', ParseUUIDPipe) lid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateTaskSchema)) body: UpdateTaskInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.update(id, body);
+    await this.assertAccess(wid, pid, mid, lid, user.id);
+    return this.service.update(id, lid, wid, body);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  async remove(
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('lid', ParseUUIDPipe) lid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    await this.assertAccess(wid, pid, mid, lid, user.id);
+    return this.service.remove(id, lid);
   }
 }

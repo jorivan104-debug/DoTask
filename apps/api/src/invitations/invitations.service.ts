@@ -55,19 +55,24 @@ export class InvitationsService {
     });
     if (existing) throw new ConflictException('Ya eres miembro de este espacio de trabajo');
 
-    await this.prisma.$transaction([
-      this.prisma.workspaceMember.create({
+    await this.prisma.$transaction(async (tx) => {
+      // Consumir de forma atómica: si dos usuarios canjean el mismo código a la vez,
+      // solo uno ve `count === 1`; el otro aborta la transacción.
+      const consumed = await tx.workspaceInvitation.updateMany({
+        where: { id: invitation.id, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      if (consumed.count !== 1) {
+        throw new ConflictException('Esta invitación ya fue utilizada');
+      }
+      await tx.workspaceMember.create({
         data: {
           workspaceId: invitation.workspaceId,
           userId,
           role: invitation.role,
         },
-      }),
-      this.prisma.workspaceInvitation.update({
-        where: { id: invitation.id },
-        data: { consumedAt: new Date() },
-      }),
-    ]);
+      });
+    });
 
     return { workspaceId: invitation.workspaceId, workspaceName: invitation.workspace.name, role: invitation.role };
   }

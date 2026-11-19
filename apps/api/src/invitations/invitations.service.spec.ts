@@ -3,7 +3,7 @@ import { ForbiddenException, NotFoundException, ConflictException } from '@nestj
 import { InvitationsService } from './invitations.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-const mockPrisma = {
+const mockPrisma: Record<string, any> = {
   workspaceMember: {
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -12,8 +12,10 @@ const mockPrisma = {
     create: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
-  $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+  // Transacción interactiva: ejecuta el callback con el propio mock como `tx`.
+  $transaction: jest.fn((fn: (tx: unknown) => unknown): unknown => fn(mockPrisma)),
 };
 
 describe('InvitationsService', () => {
@@ -139,7 +141,7 @@ describe('InvitationsService', () => {
       });
       mockPrisma.workspaceMember.findUnique.mockResolvedValue(null);
       mockPrisma.workspaceMember.create.mockResolvedValue({});
-      mockPrisma.workspaceInvitation.update.mockResolvedValue({});
+      mockPrisma.workspaceInvitation.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.accept('valid-code', 'user-2');
 
@@ -147,6 +149,26 @@ describe('InvitationsService', () => {
       expect(result.workspaceName).toBe('Test WS');
       expect(result.role).toBe('member');
       expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.workspaceInvitation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'inv-1', consumedAt: null } }),
+      );
+    });
+
+    it('should reject a concurrent redemption of the same code', async () => {
+      mockPrisma.workspaceInvitation.findUnique.mockResolvedValue({
+        id: 'inv-1',
+        consumedAt: null,
+        expiresAt: new Date(Date.now() + 86400000),
+        workspaceId: 'ws-1',
+        role: 'member',
+        workspace: { name: 'Test WS' },
+      });
+      mockPrisma.workspaceMember.findUnique.mockResolvedValue(null);
+      // Otro usuario la consumió entre la lectura y la escritura.
+      mockPrisma.workspaceInvitation.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.accept('valid-code', 'user-3')).rejects.toThrow(ConflictException);
+      expect(mockPrisma.workspaceMember.create).not.toHaveBeenCalled();
     });
   });
 });

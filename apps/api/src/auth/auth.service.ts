@@ -93,4 +93,10 @@ export class AuthService {
     if (!user) throw new UnauthorizedException();
     return user;
   }
+
+  async findUserByWorkosId(workosUserId: string) {
+    const user = await this.prisma.user.findUnique({ where: { workosUserId } });
+    if (!user) throw new UnauthorizedException();
+    return user;
+  }
 }
