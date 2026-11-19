@@ -6,10 +6,17 @@ import {
   Delete,
   Body,
   Param,
-  Req,
+  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  createTaskListSchema,
+  updateTaskListSchema,
+  type CreateTaskListInput,
+  type UpdateTaskListInput,
+} from '@dotask/shared';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -39,49 +46,49 @@ export class TaskListsController {
 
   @Get()
   async findAll(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('mid') mid: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, mid, (req as any).user.id);
+    await this.assertAccess(wid, pid, mid, user.id);
     return this.service.findByMilestone(mid);
   }
 
   @Post()
   async create(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('mid') mid: string,
-    @Body() body: { name: string },
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Body(new ZodValidationPipe(createTaskListSchema)) body: CreateTaskListInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, mid, (req as any).user.id);
+    await this.assertAccess(wid, pid, mid, user.id);
     return this.service.create(mid, body);
   }
 
   @Patch(':id')
   async update(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('mid') mid: string,
-    @Param('id') id: string,
-    @Body() body: { name?: string; sortOrder?: number },
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateTaskListSchema)) body: UpdateTaskListInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, mid, (req as any).user.id);
+    await this.assertAccess(wid, pid, mid, user.id);
     return this.service.update(id, mid, body);
   }
 
   @Delete(':id')
   async remove(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('mid') mid: string,
-    @Param('id') id: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('mid', ParseUUIDPipe) mid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, mid, (req as any).user.id);
+    await this.assertAccess(wid, pid, mid, user.id);
     return this.service.remove(id, mid);
   }
 }

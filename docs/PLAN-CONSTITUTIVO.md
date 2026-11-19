@@ -45,8 +45,11 @@ WorkOS AuthKit concentra todo el login: email mágico, contraseña (si se habili
 
 1. El frontend redirige al **hosted sign-in** de WorkOS.
 2. Tras autenticarse, WorkOS devuelve al usuario a la **redirect URI** (callback en el backend).
-3. El servidor intercambia el código con el SDK `@workos-inc/node`, obtiene el perfil del usuario, persiste con Prisma y establece una **cookie httpOnly** de sesión (`dotask_session`, valor `userId` interno) en el dominio del API.
-4. En cada petición posterior, un guard de NestJS valida la cookie, resuelve el usuario y adjunta el `userId` al contexto.
+3. El servidor intercambia el código con el SDK `@workos-inc/node`, obtiene el perfil del usuario, persiste con Prisma y establece una **cookie httpOnly** de sesión (`dotask_session`) en el dominio del API. El valor es un token **firmado** con HMAC-SHA256 (`SESSION_SECRET`) que contiene el `userId` interno y su caducidad (7 días); sin el secreto no se puede fabricar.
+4. En cada petición posterior, un guard de NestJS verifica la firma y la caducidad de la cookie, resuelve el usuario y lo adjunta al contexto (`@CurrentUser()`).
+5. El mismo guard acepta `Authorization: Bearer <jwt>` emitido por WorkOS AuthKit (verificado contra su JWKS) para clientes como el conector MCP de Claude. Ambas credenciales resuelven al mismo usuario interno.
+
+**Estado (Fase 1 de seguridad): listo** — sesión firmada, control de acceso por espacio en todas las rutas (incluidas tareas por id y comentarios), validación Zod con lista blanca de campos, `helmet`, límites de peticiones y canje atómico de invitaciones.
 
 ### Capacitor (iOS / Android)
 

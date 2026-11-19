@@ -3,11 +3,20 @@ import {
   Post,
   Body,
   Param,
-  Req,
+  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  acceptInvitationSchema,
+  createInvitationSchema,
+  type AcceptInvitationInput,
+  type CreateInvitationInput,
+} from '@dotask/shared';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '../auth/auth.guard';
+import { STRICT_THROTTLE } from '../common/throttle';
 import { InvitationsService } from './invitations.service';
 
 @Controller('v1')
@@ -17,18 +26,19 @@ export class InvitationsController {
 
   @Post('workspaces/:wid/invitations')
   create(
-    @Param('wid') wid: string,
-    @Body() body: { role?: string },
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Body(new ZodValidationPipe(createInvitationSchema)) body: CreateInvitationInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.create(wid, (req as any).user.id, body.role);
+    return this.service.create(wid, user.id, body.role);
   }
 
   @Post('invitations/accept')
+  @Throttle(STRICT_THROTTLE)
   accept(
-    @Body() body: { code: string },
-    @Req() req: Request,
+    @Body(new ZodValidationPipe(acceptInvitationSchema)) body: AcceptInvitationInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.service.accept(body.code, (req as any).user.id);
+    return this.service.accept(body.code, user.id);
   }
 }

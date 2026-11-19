@@ -10,6 +10,8 @@ Este documento recoge **el estado aplicado en el repositorio** para desplegar Do
 |----------|----------------|------------------|-----|
 | `postgres` | `postgres:16-alpine` | 5432 | Base de datos |
 | `redis` | `redis:7-alpine` | 6379 | Cache / colas (futuro) |
+
+`postgres` y `redis` **no publican puertos** en el host: solo son accesibles desde la red interna del compose. En local se publican en `127.0.0.1` con `docker-compose.dev.yml`.
 | `api` | `apps/api/Dockerfile` | 3000 | NestJS + Prisma |
 | `web` | `apps/web/Dockerfile` | 80 (nginx) | SPA estática |
 
@@ -79,6 +81,10 @@ Interpolación: `${VARIABLE}` en `docker-compose.yml`; valores por defecto solo 
 | `WORKOS_CLIENT_ID` | Cliente WorkOS |
 | `WORKOS_COOKIE_PASSWORD` | Secreto de sesión (AuthKit) |
 | `WORKOS_REDIRECT_URI` | Debe coincidir con WorkOS Dashboard, p. ej. `https://api.app-sprint.com/v1/auth/callback` |
+| `SESSION_SECRET` | Firma de la cookie de sesión, **48+ caracteres aleatorios**. Si falta se usa `WORKOS_COOKIE_PASSWORD`. Al cambiarlo se cierran todas las sesiones |
+| `POSTGRES_PASSWORD` | Contraseña del servicio `postgres` (por defecto `dotask`). **Solo se aplica al crear el volumen**: en una base existente cámbiala con `ALTER USER` antes de tocar la variable |
+| `WORKOS_AUTHKIT_DOMAIN` | Opcional. Dominio AuthKit (`xxx.authkit.app`) que emite los tokens Bearer del conector MCP |
+| `MCP_RESOURCE_URL` | Opcional. Audiencia esperada en esos tokens, p. ej. `https://api.app-sprint.com/mcp` |
 
 ### Build del frontend (`web`)
 
@@ -161,3 +167,4 @@ npm run prisma:migrate --workspace=apps/api
 - Vite 7 + `@vitejs/plugin-react` 5.x + overrides por conflicto con `vite-plugin-pwa`.
 - Prisma: copiar `node_modules` desde raíz del build; migraciones en Git para evitar 500 en callback por tablas inexistentes.
 - Traefik + `dokploy-network` + sin bind del puerto 3000 del API en el host.
+- Fase 1 de seguridad: cookie de sesión firmada (`SESSION_SECRET`), Postgres y Redis sin puertos publicados, imagen del API con `packages/shared` compilado.

@@ -6,10 +6,17 @@ import {
   Delete,
   Body,
   Param,
-  Req,
+  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  createMilestoneSchema,
+  updateMilestoneSchema,
+  type CreateMilestoneInput,
+  type UpdateMilestoneInput,
+} from '@dotask/shared';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -31,56 +38,56 @@ export class MilestonesController {
 
   @Get()
   async findAll(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.findByProject(pid);
   }
 
   @Get(':id')
   async findOne(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('id') id: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.findOneOrFail(id, pid);
   }
 
   @Post()
   async create(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Body() body: { name: string; description?: string; targetDate?: string },
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Body(new ZodValidationPipe(createMilestoneSchema)) body: CreateMilestoneInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.create(pid, body);
   }
 
   @Patch(':id')
   async update(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('id') id: string,
-    @Body() body: Record<string, any>,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateMilestoneSchema)) body: UpdateMilestoneInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.update(id, pid, body);
   }
 
   @Delete(':id')
   async remove(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('id') id: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.remove(id, pid);
   }
 }

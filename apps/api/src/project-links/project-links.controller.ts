@@ -5,10 +5,15 @@ import {
   Delete,
   Body,
   Param,
-  Req,
+  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  createProjectLinkSchema,
+  type CreateProjectLinkInput,
+} from '@dotask/shared';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthGuard } from '../auth/auth.guard';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -30,33 +35,33 @@ export class ProjectLinksController {
 
   @Get()
   async findAll(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.findByProject(pid);
   }
 
   @Post()
   async create(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Body() body: { label: string; url: string },
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Body(new ZodValidationPipe(createProjectLinkSchema)) body: CreateProjectLinkInput,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.create(pid, body);
   }
 
   @Delete(':linkId')
   async remove(
-    @Param('wid') wid: string,
-    @Param('pid') pid: string,
-    @Param('linkId') linkId: string,
-    @Req() req: Request,
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('pid', ParseUUIDPipe) pid: string,
+    @Param('linkId', ParseUUIDPipe) linkId: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    await this.assertAccess(wid, pid, (req as any).user.id);
+    await this.assertAccess(wid, pid, user.id);
     return this.service.remove(linkId, pid);
   }
 }
