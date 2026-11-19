@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import type { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Campos públicos de un usuario: nunca exponer `workosUserId` ni timestamps internos. */
+/** Campos públicos de un usuario: nunca exponer `googleSub` ni timestamps internos. */
 export const PUBLIC_USER_SELECT = { id: true, email: true, displayName: true } as const;
 
 @Injectable()

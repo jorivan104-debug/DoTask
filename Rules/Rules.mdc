@@ -20,4 +20,4 @@ alwaysApply: true
 - Los métodos y componentes deben ser reutilizables para cumplir con DRY "Don't
   repeat yourself"
 - Stack: React + Vite + TypeScript (frontend), NestJS + Prisma (backend),
-  PostgreSQL, Redis, WorkOS (auth), Capacitor (móvil), Dokploy (deploy)
+  PostgreSQL, Redis, Google OAuth (auth), Capacitor (móvil), Dokploy (deploy)

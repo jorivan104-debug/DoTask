@@ -77,14 +77,11 @@ Interpolación: `${VARIABLE}` en `docker-compose.yml`; valores por defecto solo 
 | `DATABASE_URL` | PostgreSQL (p. ej. servicio `postgres` del mismo compose) |
 | `REDIS_URL` | Redis (p. ej. `redis://redis:6379`) |
 | `FRONTEND_URL` | URL **HTTPS** del front (CORS en Nest y redirects tras login/logout). Ej.: `https://dotaskweb.app-sprint.com` |
-| `WORKOS_API_KEY` | Secreto WorkOS |
-| `WORKOS_CLIENT_ID` | Cliente WorkOS |
-| `WORKOS_COOKIE_PASSWORD` | Secreto de sesión (AuthKit) |
-| `WORKOS_REDIRECT_URI` | Debe coincidir con WorkOS Dashboard, p. ej. `https://api.app-sprint.com/v1/auth/callback` |
-| `SESSION_SECRET` | Firma de la cookie de sesión, **48+ caracteres aleatorios**. Si falta se usa `WORKOS_COOKIE_PASSWORD`. Al cambiarlo se cierran todas las sesiones |
+| `GOOGLE_CLIENT_ID` | ID de cliente OAuth de Google (`…apps.googleusercontent.com`) |
+| `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth (`GOCSPX-…`) — nunca en el frontend |
+| `GOOGLE_REDIRECT_URI` | `https://api.app-sprint.com/v1/auth/callback`; debe estar en «URI de redireccionamiento autorizados» del cliente |
+| `SESSION_SECRET` | **Obligatoria.** Firma de las cookies, 48+ caracteres aleatorios (`openssl rand -base64 48`). Al cambiarla se cierran todas las sesiones |
 | `POSTGRES_PASSWORD` | Contraseña del servicio `postgres` (por defecto `dotask`). **Solo se aplica al crear el volumen**: en una base existente cámbiala con `ALTER USER` antes de tocar la variable |
-| `WORKOS_AUTHKIT_DOMAIN` | Opcional. Dominio AuthKit (`xxx.authkit.app`) que emite los tokens Bearer del conector MCP |
-| `MCP_RESOURCE_URL` | Opcional. Audiencia esperada en esos tokens, p. ej. `https://api.app-sprint.com/mcp` |
 
 ### Build del frontend (`web`)
 
@@ -130,10 +127,15 @@ npm run prisma:migrate --workspace=apps/api
 
 ---
 
-## 6. WorkOS (dashboard)
+## 6. Google Cloud Console (OAuth)
 
-- Redirect URI: misma URL que `WORKOS_REDIRECT_URI` (callback del API).
-- Orígenes / URLs de producción alineados con `FRONTEND_URL` y dominio del API.
+1. **APIs y servicios → Pantalla de consentimiento de OAuth**: tipo «Externo», nombre de la app (DoTask), correo de asistencia, dominio autorizado `app-sprint.com`, alcances `openid`, `email`, `profile`. Mientras esté en modo «Prueba», solo entran los usuarios de prueba que añadas; publícala para abrirla a cualquier cuenta de Google.
+2. **Credenciales → Crear credenciales → ID de cliente de OAuth**, tipo «Aplicación web».
+   - Orígenes de JavaScript autorizados: `https://dotaskweb.app-sprint.com`
+   - URI de redireccionamiento autorizados: `https://api.app-sprint.com/v1/auth/callback` (y `http://localhost:3000/v1/auth/callback` para desarrollo).
+3. Copia el ID y el secreto a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en Dokploy.
+
+Los usuarios creados con WorkOS se conservan: en su primer login con Google se vinculan por correo verificado.
 
 ---
 
@@ -141,7 +143,7 @@ npm run prisma:migrate --workspace=apps/api
 
 1. En Dokploy: variables del §3 definidas para el entorno del compose.
 2. DNS: registros hacia el servidor (A/AAAA) para API y web.
-3. WorkOS: redirect URI y cliente de producción.
+3. Google Cloud: cliente OAuth con la URI de redirección de producción y pantalla de consentimiento publicada.
 4. **Preview Compose** en Dokploy: revisar fusión de redes y labels con el `docker-compose.yml` del repo.
 5. Tras el primer deploy con DB vacía, confirmar en logs del `api` que **`migrate deploy`** aplicó la migración inicial.
 

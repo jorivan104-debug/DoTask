@@ -26,7 +26,7 @@ DoTask ofrece una experiencia de gestión de tareas personales y colaborativas i
 | ORM / Migraciones | Prisma | Migraciones versionadas, tipos generados |
 | Base de datos | PostgreSQL | Fuente de verdad |
 | Cache / Colas | Redis (BullMQ) | Rate limiting, notificaciones, recordatorios |
-| Autenticación | WorkOS (AuthKit) | Sin contraseñas locales; SSO, Magic Auth, OAuth |
+| Autenticación | Google (OAuth 2.0 / OpenID Connect) | Sin contraseñas locales; sesión propia firmada |
 | Despliegue | Dokploy | Frontend estático, backend Node, Postgres, Redis |
 
 **Idioma de la interfaz**: español.  
@@ -35,25 +35,26 @@ DoTask ofrece una experiencia de gestión de tareas personales y colaborativas i
 
 ---
 
-## 3. Autenticación con WorkOS
+## 3. Autenticación con Google
 
 ### Proveedor
 
-WorkOS AuthKit concentra todo el login: email mágico, contraseña (si se habilita en WorkOS), Google, Microsoft y cualquier conexión SSO empresarial configurada en el dashboard.
+El login es con cuenta de Google mediante OAuth 2.0 / OpenID Connect, sin intermediarios (librería oficial `google-auth-library`). DoTask no guarda contraseñas. Hasta noviembre de 2026 se usó WorkOS; las cuentas de esa etapa se vinculan por correo verificado en su primer login con Google.
 
 ### Flujo web / PWA
 
-1. El frontend redirige al **hosted sign-in** de WorkOS.
-2. Tras autenticarse, WorkOS devuelve al usuario a la **redirect URI** (callback en el backend).
-3. El servidor intercambia el código con el SDK `@workos-inc/node`, obtiene el perfil del usuario, persiste con Prisma y establece una **cookie httpOnly** de sesión (`dotask_session`) en el dominio del API. El valor es un token **firmado** con HMAC-SHA256 (`SESSION_SECRET`) que contiene el `userId` interno y su caducidad (7 días); sin el secreto no se puede fabricar.
+1. `GET /v1/auth/login` genera un `state` aleatorio y un verificador **PKCE** (S256), los guarda en una cookie httpOnly firmada de 10 minutos (`dotask_oauth`) y redirige a la pantalla de consentimiento de Google (alcances `openid email profile`).
+2. Google devuelve al usuario a `GET /v1/auth/callback` con `code` y `state`. El servidor comprueba que el `state` coincide, canjea el código con el verificador PKCE y verifica el `id_token` (firma, audiencia = `GOOGLE_CLIENT_ID`, emisor de Google). Exige `email_verified`.
+3. El usuario se busca por `google_sub`; si no existe, se vincula la cuenta con el mismo correo o se crea. Después se establece una **cookie httpOnly** de sesión (`dotask_session`) en el dominio del API. El valor es un token **firmado** con HMAC-SHA256 (`SESSION_SECRET`) que contiene el `userId` interno y su caducidad (7 días); sin el secreto no se puede fabricar.
 4. En cada petición posterior, un guard de NestJS verifica la firma y la caducidad de la cookie, resuelve el usuario y lo adjunta al contexto (`@CurrentUser()`).
-5. El mismo guard acepta `Authorization: Bearer <jwt>` emitido por WorkOS AuthKit (verificado contra su JWKS) para clientes como el conector MCP de Claude. Ambas credenciales resuelven al mismo usuario interno.
+5. Cualquier error (cancelación, `state` inválido, correo sin verificar) redirige a `/login?error=cancelado|google` sin crear sesión.
+6. Conector MCP de Claude (Fase 3 del plan de mejora): Google no permite el registro dinámico de clientes que usa claude.ai, así que DoTask expondrá su propio servidor de autorización OAuth (que delega la identidad en este login de Google) y el guard aceptará también `Authorization: Bearer` de ese servidor.
 
 **Estado (Fase 1 de seguridad): listo** — sesión firmada, control de acceso por espacio en todas las rutas (incluidas tareas por id y comentarios), validación Zod con lista blanca de campos, `helmet`, límites de peticiones y canje atómico de invitaciones.
 
 ### Capacitor (iOS / Android)
 
-Registrar en el dashboard de WorkOS los redirect URI adecuados:
+Registrar en el cliente OAuth de Google los redirect URI adecuados:
 
 - Producción: HTTPS del dominio real.
 - Desarrollo: esquema custom `capacitor://` o `https://localhost` según la guía de Capacitor.
@@ -62,16 +63,16 @@ Registrar en el dashboard de WorkOS los redirect URI adecuados:
 
 | Variable | Descripción |
 |----------|-------------|
-| `WORKOS_API_KEY` | Clave secreta de API — **nunca** exponer en el cliente |
-| `WORKOS_CLIENT_ID` | ID de cliente de WorkOS |
-| `WORKOS_COOKIE_PASSWORD` | Secreto para cookie sellada (si aplica al modo AuthKit elegido) |
-| `WORKOS_REDIRECT_URI` | URI de callback alineada con Dokploy |
+| `GOOGLE_CLIENT_ID` | ID de cliente OAuth de Google |
+| `GOOGLE_CLIENT_SECRET` | Secreto del cliente — **nunca** exponer en el cliente |
+| `GOOGLE_REDIRECT_URI` | URI de callback del API, registrada en Google Cloud Console |
+| `SESSION_SECRET` | Firma HMAC de las cookies (obligatoria, 32+ caracteres) |
 
 En Vite se usa **`VITE_API_URL`** (URL pública del API) embebida en el build; sin ella el login redirige al dominio del front en lugar del backend. Ver [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md).
 
-### WorkOS y equipos
+### Equipos
 
-Los workspaces de DoTask son entidad propia en Postgres. Opcionalmente, en fases posteriores se puede alinear las invitaciones con WorkOS Organizations.
+Los workspaces de DoTask son entidad propia en Postgres y no dependen del proveedor de identidad.
 
 ---
 
@@ -118,7 +119,7 @@ erDiagram
 
   users {
     uuid id PK
-    text workos_user_id UK
+    text google_sub UK
     citext email UK
     text display_name
     timestamptz created_at
@@ -222,14 +223,14 @@ flowchart LR
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | `id` | `uuid` | PK interna |
-| `workos_user_id` | `text` | Único; ID de usuario en WorkOS (`user_...`) |
-| `email` | `citext` | Único; sincronizado desde WorkOS |
-| `display_name` | `text` | Nombre visible; desde WorkOS |
+| `google_sub` | `text` | Único, nulo solo en cuentas aún no vinculadas o la de desarrollo; `sub` del `id_token` de Google |
+| `email` | `citext` | Único; sincronizado desde Google (siempre verificado) |
+| `display_name` | `text` | Nombre visible; desde Google |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-Índices únicos en `workos_user_id` y `email`. Sin `password_hash`: las credenciales viven en WorkOS.
+Índices únicos en `google_sub` y `email`. Sin `password_hash`: las credenciales viven en Google.
 
-**Sesión y tokens**: en MVP la sesión se gestiona con el flujo recomendado por WorkOS (cookie sellada o JWT contra JWKS). La tabla `refresh_tokens` no forma parte del núcleo; se añade como opcional si se emiten tokens propios de larga duración.
+**Sesión y tokens**: cookie propia firmada con HMAC-SHA256 (`SESSION_SECRET`), sin guardar tokens de Google. La tabla `refresh_tokens` no forma parte del núcleo; se añade como opcional si se emiten tokens propios de larga duración.
 
 #### `workspaces`
 
@@ -240,7 +241,7 @@ flowchart LR
 | `created_by` | `uuid` | FK → `users(id)` |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-**Regla de producto (onboarding explícito)**: el login vía WorkOS solo hace upsert del usuario. **No se crea ningún workspace automáticamente en el flujo de callback de este repositorio.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/hito/lista en transacción), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`). Si en despliegue se añade un workspace por otros medios (script, otro servicio) y quedara vacío de proyectos, el primer `GET /v1/workspaces/:wid/projects` aplicará la misma semilla (ver §4.2).
+**Regla de producto (onboarding explícito)**: el login con Google solo hace upsert del usuario. **No se crea ningún workspace automáticamente en el flujo de callback de este repositorio.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/hito/lista en transacción), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`). Si en despliegue se añade un workspace por otros medios (script, otro servicio) y quedara vacío de proyectos, el primer `GET /v1/workspaces/:wid/projects` aplicará la misma semilla (ver §4.2).
 
 #### `workspace_members`
 
@@ -359,7 +360,7 @@ Endpoints:
 ### 4.7 Roadmap de esquema
 
 - `task_attachments`: adjuntos con storage S3/compatible.
-- SSO empresarial adicional: configuración en dashboard WorkOS.
+- Otros proveedores de identidad (Microsoft, correo mágico) si se necesitan.
 - Notificaciones: colas en Redis con BullMQ usando `tasks.remind_at`.
 
 ---
@@ -377,7 +378,7 @@ Endpoints:
 ```
 
 - Siempre validar que cada entidad hija pertenece a la cadena del workspace indicado.
-- Rutas protegidas: solo accesibles con identidad WorkOS válida mapeada a `users`.
+- Rutas protegidas: solo accesibles con sesión válida de un usuario autenticado con Google.
 - CORS configurado para dominio PWA y orígenes de Capacitor.
 - Variables de entorno por servicio en Dokploy; sin secretos en el bundle del frontend.
 
@@ -396,7 +397,7 @@ La guía operativa completa (Compose, Traefik, `dokploy-network`, builds, migrac
 
 - Red interna entre API, Postgres y Redis; **además** `dokploy-network` en `api` y `web` para Traefik (ver guía de despliegue).
 - SSL en el proxy (Traefik / Dokploy); dominios de API y front documentados en la guía de despliegue.
-- En el dashboard WorkOS: redirect URI = callback del API en HTTPS.
+- En Google Cloud Console: URI de redirección = callback del API en HTTPS.
 
 ### Variables de entorno requeridas
 
@@ -406,10 +407,10 @@ La guía operativa completa (Compose, Traefik, `dokploy-network`, builds, migrac
 |----------|-------------|
 | `DATABASE_URL` | Cadena de conexión PostgreSQL |
 | `REDIS_URL` | Cadena de conexión Redis |
-| `WORKOS_API_KEY` | Clave secreta WorkOS |
-| `WORKOS_CLIENT_ID` | ID de cliente WorkOS |
-| `WORKOS_COOKIE_PASSWORD` | Secreto para sesión WorkOS |
-| `WORKOS_REDIRECT_URI` | URI de callback (misma que en WorkOS), p. ej. `https://<api-host>/v1/auth/callback` |
+| `GOOGLE_CLIENT_ID` | ID de cliente OAuth de Google |
+| `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth |
+| `GOOGLE_REDIRECT_URI` | URI de callback (registrada en Google), p. ej. `https://<api-host>/v1/auth/callback` |
+| `SESSION_SECRET` | Firma de las cookies de sesión (32+ caracteres) |
 | `FRONTEND_URL` | URL pública **HTTPS** del frontend (CORS y redirects post-login) |
 | `NODE_ENV` | `production` |
 | `PORT` | Puerto del servidor (default 3000) |
@@ -442,7 +443,7 @@ DoTask/
 
 ## 8. Fases de entrega
 
-1. **Fundaciones**: login WorkOS (AuthKit), upsert usuario, workspace semilla, proyectos, hitos, listas y tareas CRUD (jerarquía completa), despliegue Dokploy (API + Postgres + Redis + secretos WorkOS + migraciones Prisma versionadas + guía [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md)).
+1. **Fundaciones**: login con Google, upsert usuario, workspace semilla, proyectos, hitos, listas y tareas CRUD (jerarquía completa), despliegue Dokploy (API + Postgres + Redis + secretos WorkOS + migraciones Prisma versionadas + guía [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md)).
 2. **Colaboración**: miembros, roles, asignaciones, listas compartidas en el marco del mismo workspace/proyecto/hito.
 3. **PWA + Capacitor**: manifest, service worker, builds iOS/Android, deep links.
 4. **Redis**: colas/notificaciones, cache de lectura.
@@ -466,5 +467,5 @@ DoTask/
 - **Modelo de dominio**: Workspace → Proyecto → Hito → Lista → Tarea.
 - **Redis** previsto para cache y colas cuando el producto lo requiera.
 - **NestJS** como framework de backend.
-- **Login**: WorkOS (AuthKit); usuarios identificados por `workos_user_id`, sin contraseñas locales.
+- **Login**: cuenta de Google (OAuth 2.0 / OIDC); usuarios identificados por `google_sub`, sin contraseñas locales.
 - **Prisma** como ORM con migraciones versionadas.
