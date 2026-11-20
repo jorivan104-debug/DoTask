@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from './push.service';
 
-const OPEN_STATUS = { notIn: ['completed', 'cancelled'] };
+const OPEN_STATUS = { not: 'completed' };
 const CHECK_EVERY_MS = 60 * 1000;
 /** Ventanas de gracia: si el API estuvo caído, no se avisan alertas demasiado viejas. */
 const REMINDER_WINDOW_MS = 60 * 60 * 1000;
@@ -19,16 +19,11 @@ const alertSelect = {
     select: {
       id: true,
       name: true,
-      milestone: {
+      project: {
         select: {
           id: true,
-          project: {
-            select: {
-              id: true,
-              workspaceId: true,
-              workspace: { select: { members: { select: { userId: true } } } },
-            },
-          },
+          workspaceId: true,
+          workspace: { select: { members: { select: { userId: true } } } },
         },
       },
     },
@@ -124,13 +119,11 @@ export class TaskAlertsService implements OnModuleInit, OnModuleDestroy {
   /** Avisa al responsable; si la tarea no tiene, a los miembros del espacio. */
   recipients(task: AlertTask): string[] {
     if (task.assigneeId) return [task.assigneeId];
-    return task.list.milestone.project.workspace.members.map((m) => m.userId);
+    return task.list.project.workspace.members.map((m) => m.userId);
   }
 
   private taskUrl(task: AlertTask) {
-    const { milestone } = task.list;
-    const { project } = milestone;
-    return `/workspaces/${project.workspaceId}/p/${project.id}/m/${milestone.id}/l/${task.list.id}?tarea=${task.id}`;
+    return `/workspaces/${task.list.project.workspaceId}/l/${task.list.id}?tarea=${task.id}`;
   }
 
   private async claim(taskId: string, field: 'reminderSentAt' | 'overdueNotifiedAt', now: Date) {

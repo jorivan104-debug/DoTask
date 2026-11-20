@@ -10,8 +10,8 @@ const FEATURES = [
     body: 'Separa lo personal del trabajo. Cada espacio tiene sus propios proyectos, miembros y tareas.',
   },
   {
-    title: 'Proyectos, hitos y listas',
-    body: 'Organiza el trabajo en proyectos con hitos y listas de tareas, con prioridad, fechas y subtareas.',
+    title: 'Tareas como en To Do',
+    body: 'Mi día, importantes y planeadas; pasos, recordatorios, repeticiones, categorías y archivos de Google Drive en cada tarea.',
   },
   {
     title: 'Trabajo en equipo',
@@ -40,7 +40,7 @@ export default function LandingPage() {
           Tus tareas y las de tu equipo, en un solo lugar
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-          {APP_NAME} te ayuda a organizar proyectos en hitos y listas, repartir el trabajo y
+          {APP_NAME} te ayuda a organizar proyectos en listas, planear tu día, repartir el trabajo y
           saber en todo momento qué falta por hacer.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

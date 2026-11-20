@@ -59,6 +59,17 @@ export class SmartListsController {
     return this.service.list(kind, wid, user.id, ctx);
   }
 
+  @Get('lists/:lid/tasks')
+  async listTasks(
+    @Param('wid', ParseUUIDPipe) wid: string,
+    @Param('lid', ParseUUIDPipe) lid: string,
+    @Query(new ZodValidationPipe(dayContextSchema)) ctx: DayContext,
+    @CurrentUser() user: AuthUser,
+  ) {
+    await this.workspaces.assertMembership(wid, user.id);
+    return this.service.listTasks(wid, lid, user.id, ctx);
+  }
+
   @Get('my-day/suggestions')
   async suggestions(
     @Param('wid', ParseUUIDPipe) wid: string,

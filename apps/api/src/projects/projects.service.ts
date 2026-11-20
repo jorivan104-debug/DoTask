@@ -41,15 +41,8 @@ export class ProjectsService {
           sortOrder,
         },
       });
-      await tx.milestone.create({
-        data: {
-          projectId: project.id,
-          name: 'Backlog',
-          sortOrder: 0,
-          taskLists: {
-            create: { name: 'Tareas', sortOrder: 0 },
-          },
-        },
+      await tx.taskList.create({
+        data: { projectId: project.id, name: 'Tareas', sortOrder: 0 },
       });
       return project;
     });

@@ -8,7 +8,7 @@
 
 DoTask ofrece una experiencia de gestión de tareas personales y colaborativas inspirada en Microsoft To Do, con estas características diferenciadoras:
 
-- **Organización jerárquica**: las tareas se estructuran bajo proyectos e hitos dentro de cada espacio de trabajo (Workspace → Proyecto → Hito → Lista → Tarea).
+- **Organización jerárquica al estilo Microsoft To Do**: Workspace → Proyecto → Lista → Tarea → Pasos. Desde la migración `20261121120000_tareas_estilo_todo` ya no existe el nivel «hito».
 - **Trabajo en equipo**: espacios de trabajo compartidos con roles (owner, member, guest), asignación de tareas y comentarios.
 - **Multiplataforma**: una sola base de código React sirve como PWA en la web y como app nativa en Android/iOS vía Capacitor.
 
@@ -50,7 +50,7 @@ El login es con cuenta de Google mediante OAuth 2.0 / OpenID Connect, sin interm
 5. Cualquier error (cancelación, `state` inválido, correo sin verificar) redirige a `/login?error=cancelado|google` sin crear sesión.
 6. Conector MCP de Claude: Google no permite el registro dinámico de clientes que usa claude.ai, así que DoTask es su propio servidor de autorización OAuth 2.1 (`/oauth/*`), que delega la identidad en este login de Google. El servidor MCP (`/mcp`) solo acepta `Authorization: Bearer` de ese servidor; la API REST solo acepta la cookie.
 
-**Estado (punto 2.9): listo** — lectura: `list_workspaces`, `list_projects`, `list_lists`, `list_members`, `list_tasks`, `get_task`; creación (scope `tasks:write`): `create_project`, `create_milestone`, `create_list`, `create_task`.
+**Estado (punto 2.9): listo** — lectura: `list_workspaces`, `list_projects`, `list_lists`, `list_members`, `list_categories`, `list_tasks`, `list_tasks_for_chat`, `get_task`; escritura (scope `tasks:write`, nunca borra): `create_project`, `create_list`, `create_task`, `update_task`, `complete_task`, `add_step`, `toggle_step`, `add_to_my_day`, `link_task_to_chat`. Los cambios de Claude quedan marcados con `tasks.source = 'claude'`.
 
 **Estado (Fase 1 de seguridad): listo** — sesión firmada, control de acceso por espacio en todas las rutas (incluidas tareas por id y comentarios), validación Zod con lista blanca de campos, `helmet`, límites de peticiones y canje atómico de invitaciones.
 
@@ -90,33 +90,38 @@ Los workspaces de DoTask son entidad propia en Postgres y no dependen del provee
 ### 4.2 Jerarquía de contenido
 
 ```
-Workspace → Project → Milestone (hito) → TaskList → Task
+Workspace → Project → TaskList → Task → TaskStep
 ```
 
 - Cada workspace contiene uno o más proyectos.
-- Cada proyecto contiene hitos que segmentan el trabajo en fases o entregas.
-- Cada hito contiene listas de tareas.
-- Las tareas pertenecen a una lista concreta.
+- Cada proyecto contiene listas de tareas.
+- Las tareas pertenecen a una lista concreta y tienen pasos (checklist), como en Microsoft To Do.
+- **Migración desde hitos** (`20261121120000_tareas_estilo_todo`): las listas pasaron al proyecto; si un proyecto tenía varios hitos con listas, la lista quedó como «Hito – Lista»; un hito sin listas quedó como una lista vacía con su nombre. Las subtareas (a cualquier profundidad) se convirtieron en pasos de su tarea raíz; sus fechas, responsable y notas se anexaron a las notas de esa tarea y sus comentarios pasaron a ella. Las tareas canceladas pasaron a `deferred` y la prioridad a importancia (`high` → `high`, `low` → `low`, resto → `normal`).
 
-**Invariante de producto (semilla mínima):** todo workspace válido para uso en la app debe poder listar al menos **una** cadena `Proyecto → Hito → Lista` sin que el usuario tenga que crearla a mano. El backend lo garantiza así:
+**Invariante de producto (semilla mínima):** todo workspace válido para uso en la app debe poder listar al menos **una** cadena `Proyecto → Lista` sin que el usuario tenga que crearla a mano. El backend lo garantiza así:
 
-1. **`POST /v1/workspaces`**: al crear un espacio, se inserta en la misma operación (transacción) la semilla por defecto: proyecto **Mi Proyecto**, hito **Backlog**, lista **Tareas** (orden `sort_order = 0` en cada nivel).
+1. **`POST /v1/workspaces`**: al crear un espacio, se inserta en la misma operación (transacción) la semilla por defecto: proyecto **Mi Proyecto** con la lista **Tareas** (orden `sort_order = 0` en cada nivel).
 2. **`GET /v1/workspaces/:wid/projects`**: si el espacio existiera sin proyectos (p. ej. datos legados, scripts de aprovisionamiento o un workspace creado fuera de este flujo), antes de devolver la lista el API ejecuta una **reparación idempotente**: solo si no hay proyectos, crea esa misma jerarquía mínima. Así el diagrama ER (workspace con muchos projects) sigue siendo cierto en modelo de datos, pero en UX el usuario nunca se queda sin rama para crear tareas.
 
 ### 4.3 Diagrama entidad-relación
 
-El diagrama refleja el **modelo relacional** (cardinalidades máximas). No muestra reglas de negocio dinámicas: en la práctica, DoTask asegura que cada workspace tenga al menos un proyecto (y debajo hito y lista) mediante la semilla descrita en §4.2.
+El diagrama refleja el **modelo relacional** (cardinalidades máximas). No muestra reglas de negocio dinámicas: en la práctica, DoTask asegura que cada workspace tenga al menos un proyecto (y debajo una lista) mediante la semilla descrita en §4.2.
 
 ```mermaid
 erDiagram
   users ||--o{ workspace_members : "has"
   workspaces ||--o{ workspace_members : "has"
   workspaces ||--o{ projects : "contains"
-  projects ||--o{ milestones : "contains"
-  milestones ||--o{ task_lists : "contains"
+  projects ||--o{ task_lists : "contains"
   task_lists ||--o{ tasks : "contains"
   users ||--o{ tasks : "assigned_to"
-  tasks ||--o{ tasks : "parent_subtask"
+  tasks ||--o{ task_steps : "has"
+  tasks ||--o{ task_categories : "has"
+  categories ||--o{ task_categories : "tags"
+  workspaces ||--o{ categories : "defines"
+  tasks ||--o{ task_linked_resources : "links"
+  tasks ||--o{ my_day_entries : "planned_in"
+  users ||--o{ my_day_entries : "plans"
   tasks ||--o{ task_comments : "has"
 
   users {
@@ -154,21 +159,9 @@ erDiagram
     timestamptz updated_at
   }
 
-  milestones {
-    uuid id PK
-    uuid project_id FK
-    text name
-    text description
-    timestamptz target_date
-    timestamptz achieved_at
-    int sort_order
-    timestamptz created_at
-    timestamptz updated_at
-  }
-
   task_lists {
     uuid id PK
-    uuid milestone_id FK
+    uuid project_id FK
     text name
     int sort_order
     timestamptz created_at
@@ -181,12 +174,15 @@ erDiagram
     text title
     text notes
     text status
-    text priority
+    text importance
+    timestamptz start_at
     timestamptz due_at
     timestamptz remind_at
+    text timezone
+    jsonb recurrence
     timestamptz completed_at
     uuid assignee_id FK
-    uuid parent_task_id FK
+    text source
     int sort_order
     timestamptz created_at
     timestamptz updated_at
@@ -208,7 +204,7 @@ flowchart LR
   subgraph crear["Crear espacio"]
     A["POST /v1/workspaces"] --> B["Transacción: workspace + miembro"]
     B --> C["ensureDefaultHierarchy"]
-    C --> D["Proyecto + hito + lista por defecto"]
+    C --> D["Proyecto + lista por defecto"]
   end
   subgraph leer["Listar proyectos"]
     E["GET .../projects"] --> F{"¿count proyectos = 0?"}
@@ -243,7 +239,7 @@ flowchart LR
 | `created_by` | `uuid` | FK → `users(id)` |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-**Regla de producto (onboarding explícito)**: el login con Google solo hace upsert del usuario. **No se crea ningún workspace automáticamente en el flujo de callback de este repositorio.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/hito/lista en transacción), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`). Si en despliegue se añade un workspace por otros medios (script, otro servicio) y quedara vacío de proyectos, el primer `GET /v1/workspaces/:wid/projects` aplicará la misma semilla (ver §4.2).
+**Regla de producto (onboarding explícito)**: el login con Google solo hace upsert del usuario. **No se crea ningún workspace automáticamente en el flujo de callback de este repositorio.** Si el usuario no tiene membresía en ningún espacio, el frontend muestra una vista de onboarding donde puede: (a) crear un espacio de trabajo nuevo (`POST /v1/workspaces`, que genera la semilla proyecto/lista en transacción), o (b) unirse a un espacio existente aceptando un código de invitación (`POST /v1/invitations/accept`). Si en despliegue se añade un workspace por otros medios (script, otro servicio) y quedara vacío de proyectos, el primer `GET /v1/workspaces/:wid/projects` aplicará la misma semilla (ver §4.2).
 
 #### `workspace_members`
 
@@ -270,32 +266,17 @@ Restricción única: `(workspace_id, user_id)`. Índice en `(user_id)`.
 
 Índice: `(workspace_id, sort_order)`.
 
-#### `milestones`
+#### `task_lists`
 
 | Columna | Tipo | Notas |
 |---------|------|-------|
 | `id` | `uuid` | PK |
 | `project_id` | `uuid` | FK → `projects(id)` ON DELETE CASCADE |
 | `name` | `text` | |
-| `description` | `text` | Nullable |
-| `target_date` | `timestamptz` | Nullable; fecha objetivo |
-| `achieved_at` | `timestamptz` | Nullable; si no null, hito cerrado |
 | `sort_order` | `int` | Orden dentro del proyecto |
 | `created_at`, `updated_at` | `timestamptz` | |
 
 Índice: `(project_id, sort_order)`.
-
-#### `task_lists`
-
-| Columna | Tipo | Notas |
-|---------|------|-------|
-| `id` | `uuid` | PK |
-| `milestone_id` | `uuid` | FK → `milestones(id)` ON DELETE CASCADE |
-| `name` | `text` | |
-| `sort_order` | `int` | Orden dentro del hito |
-| `created_at`, `updated_at` | `timestamptz` | |
-
-Índice: `(milestone_id, sort_order)`.
 
 #### `tasks`
 
@@ -305,17 +286,36 @@ Restricción única: `(workspace_id, user_id)`. Índice en `(user_id)`.
 | `list_id` | `uuid` | FK → `task_lists(id)` ON DELETE CASCADE |
 | `title` | `text` | |
 | `notes` | `text` | Nullable |
-| `status` | `text` | `pending`, `completed` (extensible) |
-| `priority` | `text` | `none`, `low`, `medium`, `high` |
-| `due_at` | `timestamptz` | Nullable |
-| `remind_at` | `timestamptz` | Nullable |
-| `completed_at` | `timestamptz` | Nullable |
+| `notes_updated_at` | `timestamptz` | Nullable |
+| `status` | `text` | `not_started`, `in_progress`, `waiting_on_others`, `deferred`, `completed` (CHECK) |
+| `importance` | `text` | `low`, `normal`, `high` (CHECK); `high` = estrella «Importante» |
+| `start_at` | `timestamptz` | Nullable |
+| `due_at` | `timestamptz` | Nullable. Desde la app, una fecha sin hora se guarda como las 23:59 locales |
+| `remind_at` | `timestamptz` | Nullable; dispara la notificación push |
+| `timezone` | `text` | Nullable; IANA, con ella se calculan las repeticiones |
+| `recurrence` | `jsonb` | Nullable; `{ pattern: { type: daily\|weekly\|monthly\|yearly, interval, daysOfWeek? }, range: { type: noEnd\|endDate\|numbered, endDate?, numberOfOccurrences? } }` (forma simplificada de `patternedRecurrence` de Microsoft Graph) |
+| `completed_at` | `timestamptz` | Nullable; lo fija el servidor |
 | `assignee_id` | `uuid` | Nullable; FK → `users(id)` ON DELETE SET NULL |
-| `parent_task_id` | `uuid` | Nullable; FK → `tasks(id)` ON DELETE CASCADE |
+| `source` | `text` | `user` o `claude` (último cambio) |
+| `reminder_sent_at`, `overdue_notified_at` | `timestamptz` | Control de avisos push |
 | `sort_order` | `int` | Orden dentro de la lista |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-Índices: `(list_id, sort_order)`, `(assignee_id)` parcial, `(parent_task_id)`.
+Índices: `(list_id, sort_order)`, `(assignee_id)`, `(due_at)`, `(remind_at)`.
+
+**Repetición:** al completar una tarea que se repite, el servidor crea la siguiente en la misma transacción (mismas notas, importancia, responsable, categorías y pasos sin marcar), con las fechas desplazadas según el patrón y calculadas en la hora local de `timezone` (respeta cambios de horario). La tarea completada pierde la repetición para que reabrirla no duplique la serie.
+
+#### `task_steps`
+
+Pasos de una tarea (`checklistItem` de To Do): `id`, `task_id` (FK cascade), `title`, `is_checked`, `checked_at`, `sort_order`, `created_at`. Índice `(task_id, sort_order)`.
+
+#### `categories` y `task_categories`
+
+Categorías por **espacio de trabajo**: `categories(id, workspace_id, name, color, created_at)` con único `(workspace_id, name)`; colores `red, orange, yellow, green, teal, blue, purple, pink, gray`. `task_categories(task_id, category_id)` con PK compuesta. Una tarea solo puede usar categorías de su espacio.
+
+#### `task_linked_resources`
+
+Recursos vinculados (`linkedResource` de To Do): `id`, `task_id`, `application_name` (`Google Drive`, `Claude`, `Web`), `display_name`, `external_id`, `web_url`, `mime_type`, `created_at`. **DoTask no almacena archivos**: de Google Drive solo se guarda el enlace (se valida que sea `drive.google.com` o `docs.google.com`); de Claude, el enlace al chat (`claude.ai`). El mismo enlace no se duplica en una tarea.
 
 #### `task_comments`
 
@@ -351,8 +351,8 @@ Endpoints:
 ### 4.5 Enumeraciones
 
 - `workspace_members.role`: `owner`, `member`, `guest`.
-- `tasks.status`: `pending`, `completed` (extensible a `in_progress`, `cancelled`).
-- `tasks.priority`: `none`, `low`, `medium`, `high`.
+- `tasks.status`: `not_started`, `in_progress`, `waiting_on_others`, `deferred`, `completed` (los de Microsoft To Do; ya no existe `cancelled`).
+- `tasks.importance`: `low`, `normal`, `high`.
 
 ### 4.6 Extensiones Postgres
 
@@ -361,7 +361,7 @@ Endpoints:
 
 ### 4.7 Roadmap de esquema
 
-- `task_attachments`: adjuntos con storage S3/compatible.
+- ~~`task_attachments`~~: descartado. Los archivos se enlazan desde Google Drive (`task_linked_resources`).
 - Otros proveedores de identidad (Microsoft, correo mágico) si se necesitan.
 - ~~Notificaciones: colas en Redis con BullMQ usando `tasks.remind_at`.~~ Hecho sin colas: ver §4.8.
 
@@ -392,15 +392,19 @@ Envío: `TaskAlertsService` revisa cada minuto (en el propio API, sin Redis) los
 
 ```
 /v1/workspaces/:wid/projects
-/v1/workspaces/:wid/projects/:pid/milestones
-/v1/workspaces/:wid/projects/:pid/milestones/:mid/lists
-/v1/workspaces/:wid/projects/:pid/milestones/:mid/lists/:lid/tasks
+/v1/workspaces/:wid/projects/:pid/lists
+/v1/workspaces/:wid/lists/:lid/tasks            # GET (resumen con ?day…) y POST
+/v1/workspaces/:wid/tasks/:id                   # GET detalle, PATCH, DELETE
+/v1/workspaces/:wid/tasks/:id/steps[/:sid]      # pasos
+/v1/workspaces/:wid/tasks/:id/links[/:rid]      # Google Drive, chats de Claude, web
+/v1/workspaces/:wid/categories[/:id]
+/v1/integrations/google-drive                   # configuración pública del selector (Google Picker)
 ```
 
 Listas inteligentes, Mi día y push (✅ listo):
 
 ```
-GET    /v1/workspaces/:wid/navigation              # proyectos → hitos → listas con pendientes
+GET    /v1/workspaces/:wid/navigation              # proyectos → listas con pendientes
 GET    /v1/workspaces/:wid/smart/counts?day&dayStart&dayEnd
 GET    /v1/workspaces/:wid/smart/:kind?day&dayStart&dayEnd   # my-day | important | planned | assigned | all
 GET    /v1/workspaces/:wid/my-day/suggestions?day&dayStart&dayEnd
@@ -478,10 +482,11 @@ DoTask/
 
 ## 8. Fases de entrega
 
-1. **Fundaciones**: login con Google, upsert usuario, workspace semilla, proyectos, hitos, listas y tareas CRUD (jerarquía completa), despliegue Dokploy (API + Postgres + Redis + secretos WorkOS + migraciones Prisma versionadas + guía [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md)).
-2. **Colaboración**: miembros, roles, asignaciones, listas compartidas en el marco del mismo workspace/proyecto/hito.
+1. **Fundaciones**: login con Google, upsert usuario, workspace semilla, proyectos, listas y tareas CRUD (jerarquía completa), despliegue Dokploy (API + Postgres + Redis + secretos WorkOS + migraciones Prisma versionadas + guía [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md)).
+2. **Colaboración**: miembros, roles, asignaciones, listas compartidas en el marco del mismo workspace/proyecto.
 3. **PWA + Capacitor**: manifest, service worker, builds iOS/Android, deep links.
 4. **Redis**: cache de lectura (las notificaciones ya no dependen de Redis, ver 5).
+6. **Tareas estilo To Do** (✅ listo): sin hitos; pasos, estados de To Do, importancia, inicio, repetición, categorías por espacio, archivos de Google Drive y chats de Claude vinculados; panel de detalle a la derecha (pantalla completa en el celular); conector MCP con edición y completado.
 5. **Experiencia To Do** (✅ listo): barra lateral con listas inteligentes (Mi día, Importante, Planeado, Asignado a mí, Tareas) y contadores, árbol de proyectos plegable con búsqueda, panel móvil; Mi día con sugerencias; alertas push de recordatorios y tareas vencidas.
 
 ---
@@ -500,7 +505,7 @@ DoTask/
 
 - **React + Vite + Capacitor + PWA** como frontend único.
 - **PostgreSQL** como fuente de verdad.
-- **Modelo de dominio**: Workspace → Proyecto → Hito → Lista → Tarea.
+- **Modelo de dominio**: Workspace → Proyecto → Lista → Tarea → Pasos (estilo Microsoft To Do; el nivel «hito» se eliminó el 2026-11-21).
 - **Redis** previsto para cache y colas cuando el producto lo requiera.
 - **NestJS** como framework de backend.
 - **Login**: cuenta de Google (OAuth 2.0 / OIDC); usuarios identificados por `google_sub`, sin contraseñas locales.

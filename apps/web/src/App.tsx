@@ -17,7 +17,7 @@ import DashboardPage from './pages/DashboardPage';
 import OnboardingPage from './pages/OnboardingPage';
 import WorkspaceLayout from './components/workspace/WorkspaceLayout';
 import WorkspaceIndexRedirect from './pages/WorkspaceIndexRedirect';
-import WorkspaceTaskBoardPage from './pages/WorkspaceTaskBoardPage';
+import ListPage from './pages/ListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import SmartListPage from './pages/SmartListPage';
 import { SMART_LISTS } from './lib/smartLists';
@@ -113,10 +113,7 @@ export default function App() {
                 <Route key={s.slug} path={s.slug} element={<SmartListPage key={s.kind} kind={s.kind} />} />
               ))}
               <Route path="p/:projectId" element={<ProjectDetailPage />} />
-              <Route
-                path="p/:projectId/m/:milestoneId/l/:listId"
-                element={<WorkspaceTaskBoardPage />}
-              />
+              <Route path="l/:listId" element={<ListPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

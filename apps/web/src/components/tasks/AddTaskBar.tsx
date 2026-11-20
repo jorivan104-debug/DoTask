@@ -1,18 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { type TaskLocation, type TaskPatch, useCreateTaskInList, useNavigation, useToggleMyDay } from '../../hooks/useSmartLists';
+import { type NewTaskInput, useCreateTaskInList, useNavigation, useToggleMyDay } from '../../hooks/useSmartLists';
 import type { DayContext } from '../../lib/day';
 import { readStored, writeStored } from '../../lib/storage';
-
-type Target = Pick<TaskLocation, 'projectId' | 'milestoneId' | 'listId'>;
 
 type Props = {
   workspaceId: string;
   ctx: DayContext;
   /** Lista fija (vista de una lista). Si falta, se muestra un selector de lista. */
-  target?: Target;
-  /** Valores iniciales según la vista (p. ej. Importante → prioridad alta). */
-  defaults?: TaskPatch;
+  listId?: string;
+  /** Valores iniciales según la vista (p. ej. Importante → importancia alta). */
+  defaults?: Omit<NewTaskInput, 'title'>;
   /** Agregar la tarea nueva a Mi día. */
   addToMyDay?: boolean;
 };
@@ -20,33 +18,28 @@ type Props = {
 const LAST_LIST_KEY = 'dotask.addTask.lastList';
 
 /** Campo "Agregar una tarea" al estilo To Do. */
-export default function AddTaskBar({ workspaceId, ctx, target, defaults, addToMyDay = false }: Props) {
+export default function AddTaskBar({ workspaceId, ctx, listId, defaults, addToMyDay = false }: Props) {
   const [title, setTitle] = useState('');
-  const navQ = useNavigation(target ? undefined : workspaceId);
+  const navQ = useNavigation(listId ? undefined : workspaceId);
   const createTask = useCreateTaskInList(workspaceId);
   const toggleMyDay = useToggleMyDay(workspaceId, ctx);
 
   const options = useMemo(
     () =>
-      (navQ.data ?? []).flatMap((p) =>
-        p.milestones.flatMap((m) =>
-          m.lists.map((l) => ({
-            value: l.id,
-            label: `${p.name} · ${l.name}`,
-            target: { projectId: p.id, milestoneId: m.id, listId: l.id },
-          })),
-        ),
-      ),
+      (navQ.data ?? []).flatMap((p) => p.lists.map((l) => ({ value: l.id, label: `${p.name} · ${l.name}` }))),
     [navQ.data],
   );
   const [selected, setSelected] = useState<string>(() => readStored(`${LAST_LIST_KEY}.${workspaceId}`, ''));
-  const chosen = target ?? (options.find((o) => o.value === selected) ?? options[0])?.target;
+  const chosen = listId ?? (options.find((o) => o.value === selected) ?? options[0])?.value;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const value = title.trim();
     if (!value || !chosen) return;
-    const created = await createTask.mutateAsync({ location: chosen, task: { ...defaults, title: value } });
+    const created = await createTask.mutateAsync({
+      listId: chosen,
+      task: { ...defaults, title: value, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    });
     if (addToMyDay) await toggleMyDay.mutateAsync({ taskId: created.id, add: true });
     setTitle('');
   };
@@ -75,12 +68,12 @@ export default function AddTaskBar({ workspaceId, ctx, target, defaults, addToMy
           </button>
         )}
       </div>
-      {!target && options.length > 1 && (
+      {!listId && options.length > 1 && (
         <div className="flex items-center gap-2 border-t border-gray-100 px-3 py-1.5 text-xs text-gray-500">
           <label htmlFor="add-task-list">En la lista</label>
           <select
             id="add-task-list"
-            value={chosen?.listId ?? ''}
+            value={chosen ?? ''}
             onChange={(e) => {
               setSelected(e.target.value);
               writeStored(`${LAST_LIST_KEY}.${workspaceId}`, e.target.value);
@@ -95,7 +88,7 @@ export default function AddTaskBar({ workspaceId, ctx, target, defaults, addToMy
           </select>
         </div>
       )}
-      {!target && navQ.data && options.length === 0 && (
+      {!listId && navQ.data && options.length === 0 && (
         <p className="border-t border-gray-100 px-3 py-1.5 text-xs text-amber-700">
           Crea primero una lista en la barra lateral.
         </p>

@@ -159,10 +159,12 @@ describe('Conector MCP (e2e)', () => {
     const tools = await rpc(token, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }).expect(200);
     expect(tools.body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([
       'get_task',
+      'list_categories',
       'list_lists',
       'list_members',
       'list_projects',
       'list_tasks',
+      'list_tasks_for_chat',
       'list_workspaces',
     ]);
     expect(tools.body.result.tools.every((t: { annotations?: { readOnlyHint?: boolean } }) => t.annotations?.readOnlyHint)).toBe(true);
@@ -186,8 +188,8 @@ describe('Conector MCP (e2e)', () => {
       params: { name: 'list_tasks', arguments: { query: 'informe' } },
     }).expect(200);
     const where = prisma.task.findMany.mock.calls.at(-1)[0].where;
-    expect(where.list.milestone.project.workspace).toEqual({ members: { some: { userId: USER.id } } });
-    expect(where.status).toEqual({ notIn: ['completed', 'cancelled'] });
+    expect(where.list.project.workspace).toEqual({ members: { some: { userId: USER.id } } });
+    expect(where.status).toEqual({ not: 'completed' });
 
     const missing = await rpc(token, {
       jsonrpc: '2.0',
@@ -202,7 +204,22 @@ describe('Conector MCP (e2e)', () => {
     const token = await obtainAccessToken('tasks:read tasks:write');
     const tools = await rpc(token, { jsonrpc: '2.0', id: 6, method: 'tools/list', params: {} }).expect(200);
     const names = tools.body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['create_project', 'create_milestone', 'create_list', 'create_task']));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'create_project',
+        'create_list',
+        'create_task',
+        'update_task',
+        'complete_task',
+        'add_step',
+        'toggle_step',
+        'add_to_my_day',
+        'link_task_to_chat',
+      ]),
+    );
+    expect(names).not.toContain('create_milestone');
+    // Ninguna herramienta borra.
+    expect(tools.body.result.tools.every((t: { annotations?: { destructiveHint?: boolean } }) => !t.annotations?.destructiveHint)).toBe(true);
     const createTask = tools.body.result.tools.find((t: { name: string }) => t.name === 'create_task');
     expect(createTask.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
 
@@ -215,30 +232,61 @@ describe('Conector MCP (e2e)', () => {
     }).expect(200);
     expect(denied.body.result.isError).toBe(true);
     expect(denied.body.result.content[0].text).toContain('Lista no encontrada');
-    expect(prisma.taskList.findFirst.mock.calls.at(-1)[0].where.milestone.project.workspace).toEqual({
+    expect(prisma.taskList.findFirst.mock.calls.at(-1)[0].where.project.workspace).toEqual({
       members: { some: { userId: USER.id } },
     });
     expect(prisma.task.create).not.toHaveBeenCalled();
 
     // Lista accesible: se crea con el usuario como responsable.
-    prisma.taskList.findFirst.mockResolvedValueOnce({
-      id: LIST_ID,
-      name: 'Tareas',
-      milestone: { name: 'Backlog', project: { name: 'Web', workspaceId: 'ws-1' } },
+    prisma.taskList.findFirst.mockResolvedValueOnce({ id: LIST_ID, project: { workspaceId: 'ws-1' } });
+    prisma.task.findFirst.mockResolvedValueOnce({
+      id: TASK_ID,
+      title: 'Preparar informe',
+      status: 'not_started',
+      importance: 'high',
+      dueAt: new Date('2026-12-01T22:00:00Z'),
+      remindAt: null,
+      recurrence: null,
+      assignee: { displayName: USER.displayName, email: USER.email },
+      steps: [{ id: 's1', title: 'Datos', isChecked: false }],
+      myDayEntries: [],
+      list: { id: LIST_ID, name: 'Tareas', project: { name: 'Web' } },
     });
-    prisma.user.findUnique.mockImplementationOnce(() => Promise.resolve(USER));
     const created = await rpc(token, {
       jsonrpc: '2.0',
       id: 8,
       method: 'tools/call',
       params: {
         name: 'create_task',
-        arguments: { list_id: LIST_ID, title: 'Preparar informe', notes: 'Q4', due_at: '2026-12-01T17:00:00-05:00', assignee: 'me' },
+        arguments: {
+          list_id: LIST_ID,
+          title: 'Preparar informe',
+          notes: 'Q4',
+          due_at: '2026-12-01T17:00:00-05:00',
+          assignee: 'me',
+          importance: 'high',
+          steps: ['Datos'],
+          repeat: { type: 'weekdays' },
+        },
       },
     }).expect(200);
     expect(created.body.result.isError).toBeFalsy();
     const data = prisma.task.create.mock.calls.at(-1)![0].data;
-    expect(data).toMatchObject({ listId: LIST_ID, title: 'Preparar informe', notes: 'Q4', assigneeId: USER.id, status: 'pending', sortOrder: 3 });
+    expect(data).toMatchObject({
+      listId: LIST_ID,
+      title: 'Preparar informe',
+      notes: 'Q4',
+      assigneeId: USER.id,
+      status: 'not_started',
+      importance: 'high',
+      source: 'claude',
+      sortOrder: 3,
+      steps: { create: [{ title: 'Datos', sortOrder: 0 }] },
+      recurrence: {
+        pattern: { type: 'weekly', interval: 1, daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] },
+        range: { type: 'noEnd' },
+      },
+    });
     expect(data.dueAt).toEqual(new Date('2026-12-01T22:00:00Z'));
     expect(JSON.parse(created.body.result.content[0].text).location.list).toBe('Tareas');
   });
@@ -260,7 +308,7 @@ describe('Conector MCP (e2e)', () => {
       .get(authorizeUrl(clientId, 'tasks:read tasks:write'))
       .set('Cookie', sessionCookie())
       .expect(200);
-    expect(res.text).toContain('Crear proyectos, hitos, listas y tareas');
+    expect(res.text).toContain('Nunca borra nada');
   });
 
   it('el login ignora returnTo hacia otros sitios (sin redirección abierta)', async () => {

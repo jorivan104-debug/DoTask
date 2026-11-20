@@ -10,7 +10,6 @@ type Props = {
   /** Agrupar por fecha de vencimiento (vista Planeado). */
   groupByDue?: boolean;
   showList?: boolean;
-  highlightId?: string | null;
   hideMyDayTag?: boolean;
   emptyText: string;
 };
@@ -22,14 +21,13 @@ export default function TaskCollection({
   tasks,
   groupByDue = false,
   showList = true,
-  highlightId,
   hideMyDayTag = false,
   emptyText,
 }: Props) {
   const open = tasks.filter((t) => t.status !== 'completed');
   const done = tasks.filter((t) => t.status === 'completed');
   const row = (t: SmartTask) => (
-    <TaskRow key={t.id} workspaceId={workspaceId} task={t} ctx={ctx} showList={showList} highlighted={t.id === highlightId} hideMyDayTag={hideMyDayTag} />
+    <TaskRow key={t.id} workspaceId={workspaceId} task={t} ctx={ctx} showList={showList} hideMyDayTag={hideMyDayTag} />
   );
 
   if (tasks.length === 0) {

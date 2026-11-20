@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { toDbDay } from '../tasks/task-view';
 
 /**
  * Consultas de solo lectura para las herramientas MCP. Todas filtran por las
@@ -15,10 +16,34 @@ export interface ListTasksFilter {
   dueAfter?: string;
   query?: string;
   assignedToMe?: boolean;
+  important?: boolean;
+  /** Fecha local AAAA-MM-DD: solo las tareas en "Mi día" del usuario ese día. */
+  myDay?: string;
+  category?: string;
+  chatUrl?: string;
   limit?: number;
 }
 
-const memberOf = (userId: string) => ({ members: { some: { userId } } });
+export const memberOf = (userId: string) => ({ members: { some: { userId } } });
+
+const locationSelect = {
+  select: {
+    id: true,
+    name: true,
+    project: { select: { id: true, name: true, workspace: { select: { id: true, name: true } } } },
+  },
+} as const;
+
+type LocationRow = Prisma.TaskListGetPayload<typeof locationSelect>;
+
+const toLocation = (list: LocationRow) => ({
+  workspace: list.project.workspace.name,
+  workspace_id: list.project.workspace.id,
+  project: list.project.name,
+  project_id: list.project.id,
+  list: list.name,
+  list_id: list.id,
+});
 
 @Injectable()
 export class McpTasksService {
@@ -35,29 +60,16 @@ export class McpTasksService {
 
   async listLists(userId: string, workspaceId?: string) {
     const lists = await this.prisma.taskList.findMany({
-      where: {
-        milestone: { project: { workspace: memberOf(userId), ...(workspaceId ? { workspaceId } : {}) } },
-      },
-      select: {
-        id: true,
-        name: true,
-        milestone: {
-          select: {
-            id: true,
-            name: true,
-            project: { select: { id: true, name: true, workspace: { select: { id: true, name: true } } } },
-          },
-        },
-      },
-      orderBy: [{ milestone: { project: { sortOrder: 'asc' } } }, { milestone: { sortOrder: 'asc' } }, { sortOrder: 'asc' }],
+      where: { project: { workspace: memberOf(userId), ...(workspaceId ? { workspaceId } : {}) } },
+      select: locationSelect.select,
+      orderBy: [{ project: { sortOrder: 'asc' } }, { sortOrder: 'asc' }],
       take: 500,
     });
     return lists.map((l) => ({
       id: l.id,
       name: l.name,
-      milestone: { id: l.milestone.id, name: l.milestone.name },
-      project: { id: l.milestone.project.id, name: l.milestone.project.name },
-      workspace: l.milestone.project.workspace,
+      project: { id: l.project.id, name: l.project.name },
+      workspace: l.project.workspace,
     }));
   }
 
@@ -65,13 +77,11 @@ export class McpTasksService {
     const where: Prisma.TaskWhereInput = {
       list: {
         ...(filter.listId ? { id: filter.listId } : {}),
-        milestone: {
-          project: { workspace: memberOf(userId), ...(filter.workspaceId ? { workspaceId: filter.workspaceId } : {}) },
-        },
+        project: { workspace: memberOf(userId), ...(filter.workspaceId ? { workspaceId: filter.workspaceId } : {}) },
       },
     };
     if (filter.status) where.status = filter.status;
-    else if (!filter.includeCompleted) where.status = { notIn: ['completed', 'cancelled'] };
+    else if (!filter.includeCompleted) where.status = { not: 'completed' };
     if (filter.dueBefore || filter.dueAfter) {
       where.dueAt = {
         ...(filter.dueBefore ? { lte: new Date(filter.dueBefore) } : {}),
@@ -85,6 +95,14 @@ export class McpTasksService {
       ];
     }
     if (filter.assignedToMe) where.assigneeId = userId;
+    if (filter.important) where.importance = 'high';
+    if (filter.myDay) where.myDayEntries = { some: { userId, day: toDbDay(filter.myDay) } };
+    if (filter.category) {
+      where.categories = { some: { category: { name: { equals: filter.category, mode: 'insensitive' } } } };
+    }
+    if (filter.chatUrl) {
+      where.linkedResources = { some: { applicationName: 'Claude', webUrl: filter.chatUrl } };
+    }
 
     const tasks = await this.prisma.task.findMany({
       where,
@@ -92,13 +110,17 @@ export class McpTasksService {
         id: true,
         title: true,
         status: true,
-        priority: true,
+        importance: true,
+        startAt: true,
         dueAt: true,
         remindAt: true,
+        recurrence: true,
         completedAt: true,
-        parentTaskId: true,
         assignee: { select: { displayName: true, email: true } },
-        list: { select: { id: true, name: true, milestone: { select: { name: true, project: { select: { name: true, workspace: { select: { name: true } } } } } } } },
+        categories: { select: { category: { select: { name: true } } } },
+        myDayEntries: { where: { userId }, select: { day: true } },
+        _count: { select: { steps: true } },
+        list: locationSelect,
       },
       orderBy: [{ dueAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
       take: Math.min(Math.max(filter.limit ?? 50, 1), 100),
@@ -107,45 +129,52 @@ export class McpTasksService {
       id: t.id,
       title: t.title,
       status: t.status,
-      priority: t.priority,
+      importance: t.importance,
+      start_at: t.startAt,
       due_at: t.dueAt,
       remind_at: t.remindAt,
+      repeats: t.recurrence !== null,
       completed_at: t.completedAt,
-      is_subtask: t.parentTaskId !== null,
+      my_day: t.myDayEntries[0]?.day.toISOString().slice(0, 10) ?? null,
+      steps: t._count.steps,
+      categories: t.categories.map((c) => c.category.name),
       assignee: t.assignee,
-      location: {
-        workspace: t.list.milestone.project.workspace.name,
-        project: t.list.milestone.project.name,
-        milestone: t.list.milestone.name,
-        list: t.list.name,
-        list_id: t.list.id,
-      },
+      location: toLocation(t.list),
     }));
   }
 
   async getTask(userId: string, taskId: string) {
     const task = await this.prisma.task.findFirst({
-      where: { id: taskId, list: { milestone: { project: { workspace: memberOf(userId) } } } },
+      where: { id: taskId, list: { project: { workspace: memberOf(userId) } } },
       select: {
         id: true,
         title: true,
         notes: true,
         status: true,
-        priority: true,
+        importance: true,
+        startAt: true,
         dueAt: true,
         remindAt: true,
+        timezone: true,
+        recurrence: true,
         completedAt: true,
         createdAt: true,
         updatedAt: true,
-        parentTaskId: true,
+        source: true,
         assignee: { select: { displayName: true, email: true } },
-        subtasks: { select: { id: true, title: true, status: true, dueAt: true }, orderBy: { sortOrder: 'asc' } },
+        steps: { select: { id: true, title: true, isChecked: true }, orderBy: { sortOrder: 'asc' } },
+        categories: { select: { category: { select: { name: true, color: true } } } },
+        linkedResources: {
+          select: { id: true, applicationName: true, displayName: true, webUrl: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        myDayEntries: { where: { userId }, select: { day: true } },
         comments: {
           select: { body: true, createdAt: true, user: { select: { displayName: true } } },
           orderBy: { createdAt: 'asc' },
           take: 50,
         },
-        list: { select: { id: true, name: true, milestone: { select: { name: true, project: { select: { name: true, workspace: { select: { id: true, name: true } } } } } } } },
+        list: locationSelect,
       },
     });
     if (!task) throw new NotFoundException('Tarea no encontrada o sin acceso');
@@ -154,24 +183,28 @@ export class McpTasksService {
       title: task.title,
       notes: task.notes,
       status: task.status,
-      priority: task.priority,
+      importance: task.importance,
+      start_at: task.startAt,
       due_at: task.dueAt,
       remind_at: task.remindAt,
+      timezone: task.timezone,
+      recurrence: task.recurrence,
       completed_at: task.completedAt,
       created_at: task.createdAt,
       updated_at: task.updatedAt,
-      parent_task_id: task.parentTaskId,
+      last_changed_by: task.source,
+      my_day: task.myDayEntries[0]?.day.toISOString().slice(0, 10) ?? null,
       assignee: task.assignee,
-      subtasks: task.subtasks.map((s) => ({ id: s.id, title: s.title, status: s.status, due_at: s.dueAt })),
+      steps: task.steps.map((s) => ({ id: s.id, title: s.title, checked: s.isChecked })),
+      categories: task.categories.map((c) => c.category),
+      linked_resources: task.linkedResources.map((r) => ({
+        id: r.id,
+        app: r.applicationName,
+        title: r.displayName,
+        url: r.webUrl,
+      })),
       comments: task.comments.map((c) => ({ author: c.user.displayName, body: c.body, created_at: c.createdAt })),
-      location: {
-        workspace: task.list.milestone.project.workspace.name,
-        workspace_id: task.list.milestone.project.workspace.id,
-        project: task.list.milestone.project.name,
-        milestone: task.list.milestone.name,
-        list: task.list.name,
-        list_id: task.list.id,
-      },
+      location: toLocation(task.list),
     };
   }
 }

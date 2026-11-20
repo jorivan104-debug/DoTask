@@ -6,26 +6,39 @@ import type { SmartListKind } from '../lib/smartLists';
 export interface TaskLocation {
   projectId: string;
   projectName: string;
-  milestoneId: string;
-  milestoneName: string;
   listId: string;
   listName: string;
 }
 
+export type TaskStatus = 'not_started' | 'in_progress' | 'waiting_on_others' | 'deferred' | 'completed';
+export type TaskImportance = 'low' | 'normal' | 'high';
+
+export interface CategoryRef {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/** Resumen de una tarea para las filas de cualquier vista. */
 export interface SmartTask {
   id: string;
   title: string;
   notes: string | null;
-  status: string;
-  priority: string;
+  status: TaskStatus;
+  importance: TaskImportance;
+  startAt: string | null;
   dueAt: string | null;
   remindAt: string | null;
+  isRecurring: boolean;
   completedAt: string | null;
   createdAt: string;
   assignee: { id: string; displayName: string } | null;
   inMyDay: boolean;
   myDayFrom: string | null;
-  subtaskCount: number;
+  stepCount: number;
+  stepsDone: number;
+  linkCount: number;
+  categories: CategoryRef[];
   location: TaskLocation;
 }
 
@@ -55,7 +68,7 @@ export interface NavList {
 export interface NavProject {
   id: string;
   name: string;
-  milestones: { id: string; name: string; lists: NavList[] }[];
+  lists: NavList[];
 }
 
 /** Todo lo que vive bajo un espacio de trabajo se invalida junto tras un cambio de tarea. */
@@ -91,6 +104,17 @@ export function useSmartList(workspaceId: string | undefined, kind: SmartListKin
   });
 }
 
+export function useListTasks(workspaceId: string | undefined, listId: string | undefined, ctx: DayContext) {
+  return useQuery({
+    queryKey: ['workspace', workspaceId, 'list', listId, 'tasks', ctx.day],
+    queryFn: () =>
+      apiFetch<{ list: { id: string; name: string; project: { id: string; name: string } }; tasks: SmartTask[] }>(
+        `/v1/workspaces/${workspaceId}/lists/${listId}/tasks?${dayContextQuery(ctx)}`,
+      ),
+    enabled: !!workspaceId && !!listId,
+  });
+}
+
 export function useMyDaySuggestions(workspaceId: string | undefined, ctx: DayContext, enabled: boolean) {
   return useQuery({
     queryKey: ['workspace', workspaceId, 'smart', 'suggestions', ctx.day],
@@ -114,24 +138,34 @@ export function useToggleMyDay(workspaceId: string | undefined, ctx: DayContext)
   });
 }
 
-const taskPath = (workspaceId: string, loc: Pick<TaskLocation, 'projectId' | 'milestoneId' | 'listId'>) =>
-  `/v1/workspaces/${workspaceId}/projects/${loc.projectId}/milestones/${loc.milestoneId}/lists/${loc.listId}/tasks`;
-
 export interface TaskPatch {
   title?: string;
-  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  priority?: 'none' | 'low' | 'medium' | 'high';
+  notes?: string | null;
+  status?: TaskStatus;
+  importance?: TaskImportance;
+  startAt?: string | null;
   dueAt?: string | null;
   remindAt?: string | null;
+  timezone?: string | null;
+  recurrence?: Recurrence | null;
   assigneeId?: string | null;
+  categoryIds?: string[];
+  listId?: string;
 }
 
-/** Edita una tarea desde cualquier vista, usando la ubicación que trae cada tarea. */
-export function useUpdateTaskAnywhere(workspaceId: string | undefined) {
+export type Weekday = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+
+export interface Recurrence {
+  pattern: { type: 'daily' | 'weekly' | 'monthly' | 'yearly'; interval: number; daysOfWeek?: Weekday[] };
+  range?: { type: 'noEnd' | 'endDate' | 'numbered'; endDate?: string; numberOfOccurrences?: number };
+}
+
+/** Edita una tarea desde cualquier vista. */
+export function useUpdateTask(workspaceId: string | undefined) {
   const invalidate = useInvalidateWorkspace(workspaceId);
   return useMutation({
-    mutationFn: ({ taskId, location, patch }: { taskId: string; location: TaskLocation; patch: TaskPatch }) =>
-      apiFetch(`${taskPath(workspaceId!, location)}/${taskId}`, {
+    mutationFn: ({ taskId, patch }: { taskId: string; patch: TaskPatch }) =>
+      apiFetch<{ id: string; nextTaskId: string | null }>(`/v1/workspaces/${workspaceId}/tasks/${taskId}`, {
         method: 'PATCH',
         body: JSON.stringify(patch),
       }),
@@ -139,21 +173,16 @@ export function useUpdateTaskAnywhere(workspaceId: string | undefined) {
   });
 }
 
-export interface NewTaskInput extends TaskPatch {
+export interface NewTaskInput extends Omit<TaskPatch, 'listId'> {
   title: string;
+  steps?: string[];
 }
 
 export function useCreateTaskInList(workspaceId: string | undefined) {
   const invalidate = useInvalidateWorkspace(workspaceId);
   return useMutation({
-    mutationFn: ({
-      location,
-      task,
-    }: {
-      location: Pick<TaskLocation, 'projectId' | 'milestoneId' | 'listId'>;
-      task: NewTaskInput;
-    }) =>
-      apiFetch<{ id: string }>(taskPath(workspaceId!, location), {
+    mutationFn: ({ listId, task }: { listId: string; task: NewTaskInput }) =>
+      apiFetch<{ id: string }>(`/v1/workspaces/${workspaceId}/lists/${listId}/tasks`, {
         method: 'POST',
         body: JSON.stringify(task),
       }),
@@ -164,11 +193,32 @@ export function useCreateTaskInList(workspaceId: string | undefined) {
 export function useCreateListInProject(workspaceId: string | undefined) {
   const invalidate = useInvalidateWorkspace(workspaceId);
   return useMutation({
-    mutationFn: ({ projectId, milestoneId, name }: { projectId: string; milestoneId: string; name: string }) =>
-      apiFetch<{ id: string }>(
-        `/v1/workspaces/${workspaceId}/projects/${projectId}/milestones/${milestoneId}/lists`,
-        { method: 'POST', body: JSON.stringify({ name }) },
-      ),
+    mutationFn: ({ projectId, name }: { projectId: string; name: string }) =>
+      apiFetch<{ id: string }>(`/v1/workspaces/${workspaceId}/projects/${projectId}/lists`, {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => void invalidate(),
+  });
+}
+
+export function useUpdateList(workspaceId: string | undefined) {
+  const invalidate = useInvalidateWorkspace(workspaceId);
+  return useMutation({
+    mutationFn: ({ projectId, listId, name }: { projectId: string; listId: string; name: string }) =>
+      apiFetch(`/v1/workspaces/${workspaceId}/projects/${projectId}/lists/${listId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => void invalidate(),
+  });
+}
+
+export function useDeleteList(workspaceId: string | undefined) {
+  const invalidate = useInvalidateWorkspace(workspaceId);
+  return useMutation({
+    mutationFn: ({ projectId, listId }: { projectId: string; listId: string }) =>
+      apiFetch(`/v1/workspaces/${workspaceId}/projects/${projectId}/lists/${listId}`, { method: 'DELETE' }),
     onSuccess: () => void invalidate(),
   });
 }

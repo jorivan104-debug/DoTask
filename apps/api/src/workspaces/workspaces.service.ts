@@ -11,7 +11,7 @@ export class WorkspacesService {
 
   /**
    * Si el workspace no tiene proyectos, crea la jerarquía mínima del producto
-   * (un proyecto, un hito, una lista). Idempotente: no hace nada si ya hay proyectos.
+   * (un proyecto con una lista). Idempotente: no hace nada si ya hay proyectos.
    */
   async ensureDefaultHierarchy(
     workspaceId: string,
@@ -24,14 +24,8 @@ export class WorkspacesService {
         workspaceId,
         name: 'Mi Proyecto',
         sortOrder: 0,
-        milestones: {
-          create: {
-            name: 'Backlog',
-            sortOrder: 0,
-            taskLists: {
-              create: { name: 'Tareas', sortOrder: 0 },
-            },
-          },
+        taskLists: {
+          create: { name: 'Tareas', sortOrder: 0 },
         },
       },
     });
@@ -78,22 +72,22 @@ export class WorkspacesService {
     const task = await this.prisma.task.findFirst({
       where: {
         id: taskId,
-        list: { milestone: { project: { workspace: { members: { some: { userId } } } } } },
+        list: { project: { workspace: { members: { some: { userId } } } } },
       },
       select: {
         id: true,
         listId: true,
-        list: { select: { milestone: { select: { project: { select: { workspaceId: true } } } } } },
+        list: { select: { project: { select: { workspaceId: true } } } },
       },
     });
     if (!task) throw new NotFoundException('Task not found');
-    return { taskId: task.id, listId: task.listId, workspaceId: task.list.milestone.project.workspaceId };
+    return { taskId: task.id, listId: task.listId, workspaceId: task.list.project.workspaceId };
   }
 
   /** Comprueba que una lista pertenece al espacio indicado (para mover tareas). */
   async assertListInWorkspace(listId: string, workspaceId: string) {
     const list = await this.prisma.taskList.findFirst({
-      where: { id: listId, milestone: { project: { workspaceId } } },
+      where: { id: listId, project: { workspaceId } },
       select: { id: true },
     });
     if (!list) throw new NotFoundException('TaskList not found');

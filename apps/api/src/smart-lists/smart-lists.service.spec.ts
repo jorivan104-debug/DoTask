@@ -14,20 +14,20 @@ const row = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
   title: `Tarea ${id}`,
   notes: null,
-  status: 'pending',
-  priority: 'none',
+  status: 'not_started',
+  importance: 'normal',
+  startAt: null,
   dueAt: null,
   remindAt: null,
+  recurrence: null,
   completedAt: null,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   assignee: null,
   myDayEntries: [],
-  _count: { subtasks: 0 },
-  list: {
-    id: 'l1',
-    name: 'Tareas',
-    milestone: { id: 'm1', name: 'Backlog', project: { id: 'p1', name: 'Mi Proyecto' } },
-  },
+  steps: [{ isChecked: true }, { isChecked: false }],
+  categories: [{ category: { id: 'c1', name: 'Trabajo', color: 'blue' } }],
+  _count: { linkedResources: 1 },
+  list: { id: 'l1', name: 'Tareas', project: { id: 'p1', name: 'Mi Proyecto' } },
   ...extra,
 });
 
@@ -35,6 +35,7 @@ describe('SmartListsService', () => {
   const prisma = {
     task: { findMany: jest.fn(), findFirst: jest.fn(), count: jest.fn() },
     project: { findMany: jest.fn() },
+    taskList: { findFirst: jest.fn() },
     myDayEntry: { upsert: jest.fn(), deleteMany: jest.fn() },
   };
   const service = new SmartListsService(prisma as unknown as PrismaService);
@@ -46,13 +47,12 @@ describe('SmartListsService', () => {
   });
 
   describe('list', () => {
-    it('limita las tareas al espacio de trabajo y excluye subtareas', async () => {
+    it('limita las tareas al espacio de trabajo y solo trae pendientes', async () => {
       await service.list('all', WS, USER, CTX);
       const { where } = prisma.task.findMany.mock.calls[0][0];
       expect(where).toMatchObject({
-        parentTaskId: null,
-        list: { milestone: { project: { workspaceId: WS } } },
-        status: { notIn: ['completed', 'cancelled'] },
+        list: { project: { workspaceId: WS } },
+        status: { not: 'completed' },
       });
     });
 
@@ -61,13 +61,13 @@ describe('SmartListsService', () => {
       const { where } = prisma.task.findMany.mock.calls[0][0];
       expect(where.myDayEntries).toEqual({ some: { userId: USER, day: toDbDay('2026-11-20') } });
       // Las completadas hoy siguen visibles en Mi día (sección "Completadas").
-      expect(where.status).toEqual({ not: 'cancelled' });
+      expect(where.status).toBeUndefined();
     });
 
-    it('Importante = prioridad alta; Asignado a mí = responsable el usuario', async () => {
+    it('Importante = importancia alta; Asignado a mí = responsable el usuario', async () => {
       await service.list('important', WS, USER, CTX);
       await service.list('assigned', WS, USER, CTX);
-      expect(prisma.task.findMany.mock.calls[0][0].where.priority).toBe('high');
+      expect(prisma.task.findMany.mock.calls[0][0].where.importance).toBe('high');
       expect(prisma.task.findMany.mock.calls[1][0].where.assigneeId).toBe(USER);
     });
 
@@ -79,13 +79,13 @@ describe('SmartListsService', () => {
       const [hoy, ayer] = await service.list('all', WS, USER, CTX);
       expect(hoy).toMatchObject({ inMyDay: true, myDayFrom: null });
       expect(ayer).toMatchObject({ inMyDay: false, myDayFrom: '2026-11-19' });
-      expect(hoy.location).toEqual({
-        projectId: 'p1',
-        projectName: 'Mi Proyecto',
-        milestoneId: 'm1',
-        milestoneName: 'Backlog',
-        listId: 'l1',
-        listName: 'Tareas',
+      expect(hoy).toMatchObject({
+        stepCount: 2,
+        stepsDone: 1,
+        linkCount: 1,
+        isRecurring: false,
+        categories: [{ id: 'c1', name: 'Trabajo', color: 'blue' }],
+        location: { projectId: 'p1', projectName: 'Mi Proyecto', listId: 'l1', listName: 'Tareas' },
       });
     });
   });
@@ -158,20 +158,21 @@ describe('SmartListsService', () => {
     });
   });
 
-  it('navigation aplana el conteo de pendientes por lista', async () => {
+  it('navigation devuelve proyectos con sus listas y pendientes', async () => {
     prisma.project.findMany.mockResolvedValue([
-      {
-        id: 'p1',
-        name: 'Mi Proyecto',
-        milestones: [{ id: 'm1', name: 'Backlog', taskLists: [{ id: 'l1', name: 'Tareas', _count: { tasks: 2 } }] }],
-      },
+      { id: 'p1', name: 'Mi Proyecto', taskLists: [{ id: 'l1', name: 'Tareas', _count: { tasks: 2 } }] },
     ]);
     await expect(service.navigation(WS)).resolves.toEqual([
-      {
-        id: 'p1',
-        name: 'Mi Proyecto',
-        milestones: [{ id: 'm1', name: 'Backlog', lists: [{ id: 'l1', name: 'Tareas', openCount: 2 }] }],
-      },
+      { id: 'p1', name: 'Mi Proyecto', lists: [{ id: 'l1', name: 'Tareas', openCount: 2 }] },
     ]);
+  });
+
+  it('listTasks no expone listas de otro espacio', async () => {
+    prisma.taskList.findFirst.mockResolvedValue(null);
+    await expect(service.listTasks(WS, 'l-ajena', USER, CTX)).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.taskList.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'l-ajena', project: { workspaceId: WS } } }),
+    );
+    expect(prisma.task.findMany).not.toHaveBeenCalled();
   });
 });
