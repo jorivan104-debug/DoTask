@@ -82,6 +82,15 @@ Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle
 - Cada ruta comprueba la membresía del espacio y la cadena proyecto → hito → lista → tarea.
 - `helmet`, límite de 120 peticiones/min por cliente y 5/min en `invitations/accept` y `dev-login`.
 
+## Conector de Claude (MCP)
+
+DoTask expone un servidor MCP remoto en `https://api.app-sprint.com/mcp` para añadirlo en Claude como conector personalizado.
+
+- **Herramientas (solo lectura)**: `list_workspaces`, `list_lists`, `list_tasks` (filtros por espacio, lista, estado, fechas, texto y asignadas a mí) y `get_task`. Siempre limitadas a los espacios del usuario.
+- **Autorización**: servidor OAuth 2.1 propio (Google no admite el registro dinámico de clientes): `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/oauth/register`, `/oauth/authorize` (pide el login con Google y una pantalla «Permitir»), `/oauth/token` (PKCE S256 obligatorio, tokens de 1 h y refresco de 30 días).
+- Los tokens son valores firmados con `SESSION_SECRET` (sin tablas nuevas). No se revocan uno a uno: cambiar `SESSION_SECRET` invalida todos (y las sesiones web).
+- El token del conector solo sirve en `/mcp`; la API REST sigue exigiendo la cookie de la web.
+
 ## Apps de Windows y Android
 
 - **Windows** (`apps/desktop`): Electron que abre la web. Como Google no permite iniciar sesión en ventanas embebidas, el login se hace en el navegador del sistema y vuelve a la app con `dotask://auth` protegido con PKCE (`/v1/auth/login?client=desktop` → `/app/abrir` → `/v1/auth/desktop/exchange`).

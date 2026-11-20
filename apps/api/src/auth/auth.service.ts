@@ -12,6 +12,8 @@ export interface PendingLogin {
   codeVerifier: string;
   /** Solo en el login de la app de escritorio: reto PKCE generado por la app. */
   desktopChallenge?: string;
+  /** Ruta del API a la que volver tras el login (autorización OAuth del conector MCP). */
+  returnTo?: string;
 }
 
 export interface GoogleProfile {

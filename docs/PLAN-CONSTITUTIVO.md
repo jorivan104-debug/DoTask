@@ -48,7 +48,9 @@ El login es con cuenta de Google mediante OAuth 2.0 / OpenID Connect, sin interm
 3. El usuario se busca por `google_sub`; si no existe, se vincula la cuenta con el mismo correo o se crea. Después se establece una **cookie httpOnly** de sesión (`dotask_session`) en el dominio del API. El valor es un token **firmado** con HMAC-SHA256 (`SESSION_SECRET`) que contiene el `userId` interno y su caducidad (7 días); sin el secreto no se puede fabricar.
 4. En cada petición posterior, un guard de NestJS verifica la firma y la caducidad de la cookie, resuelve el usuario y lo adjunta al contexto (`@CurrentUser()`).
 5. Cualquier error (cancelación, `state` inválido, correo sin verificar) redirige a `/login?error=cancelado|google` sin crear sesión.
-6. Conector MCP de Claude (Fase 3 del plan de mejora): Google no permite el registro dinámico de clientes que usa claude.ai, así que DoTask expondrá su propio servidor de autorización OAuth (que delega la identidad en este login de Google) y el guard aceptará también `Authorization: Bearer` de ese servidor.
+6. Conector MCP de Claude: Google no permite el registro dinámico de clientes que usa claude.ai, así que DoTask es su propio servidor de autorización OAuth 2.1 (`/oauth/*`), que delega la identidad en este login de Google. El servidor MCP (`/mcp`) solo acepta `Authorization: Bearer` de ese servidor; la API REST solo acepta la cookie.
+
+**Estado (conector de solo lectura, punto 2.9): listo** — herramientas `list_workspaces`, `list_lists`, `list_tasks`, `get_task`.
 
 **Estado (Fase 1 de seguridad): listo** — sesión firmada, control de acceso por espacio en todas las rutas (incluidas tareas por id y comentarios), validación Zod con lista blanca de campos, `helmet`, límites de peticiones y canje atómico de invitaciones.
 

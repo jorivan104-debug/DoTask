@@ -45,8 +45,10 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-https://api.app-sprint.com/v1/auth/callback}
-      # Firma de la cookie de sesión, obligatoria (48+ caracteres aleatorios).
+      # Firma de la cookie de sesión y de los tokens del conector MCP, obligatoria (48+ caracteres).
       SESSION_SECRET: ${SESSION_SECRET}
+      # URL pública del API: emisor OAuth y recurso del conector MCP de Claude (…/mcp).
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://api.app-sprint.com}
 
   web:
     build:

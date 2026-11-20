@@ -80,6 +80,7 @@ Interpolación: `${VARIABLE}` en `docker-compose.yml`; valores por defecto solo 
 | `GOOGLE_CLIENT_ID` | ID de cliente OAuth de Google (`…apps.googleusercontent.com`) |
 | `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth (`GOCSPX-…`) — nunca en el frontend |
 | `GOOGLE_REDIRECT_URI` | `https://api.app-sprint.com/v1/auth/callback`; debe estar en «URI de redireccionamiento autorizados» del cliente |
+| `PUBLIC_API_URL` | URL pública del API, `https://api.app-sprint.com` (valor por defecto del compose). Emisor OAuth del conector MCP de Claude; el servidor MCP queda en `/mcp` |
 | `SESSION_SECRET` | **Obligatoria.** Firma de las cookies, 48+ caracteres aleatorios (`openssl rand -base64 48`). Al cambiarla se cierran todas las sesiones |
 | `POSTGRES_PASSWORD` | Contraseña del servicio `postgres` (por defecto `dotask`). **Solo se aplica al crear el volumen**: en una base existente cámbiala con `ALTER USER` antes de tocar la variable |
 
