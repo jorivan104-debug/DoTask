@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import {
-  useTaskLists,
-  useTasks,
-  useCreateTask,
-} from '../hooks/useWorkspaceResources';
+import { useMemo } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { ListTodo } from 'lucide-react';
+import { useTaskLists, useTasks, type TaskDto } from '../hooks/useWorkspaceResources';
+import { useDayContext } from '../hooks/useDayContext';
+import { useSmartList, type SmartTask } from '../hooks/useSmartLists';
+import AddTaskBar from '../components/tasks/AddTaskBar';
+import TaskCollection from '../components/tasks/TaskCollection';
 
+/** Vista de una lista de tareas, con el mismo formato que las listas inteligentes. */
 export default function WorkspaceTaskBoardPage() {
   const { workspaceId, projectId, milestoneId, listId } = useParams<{
     workspaceId: string;
@@ -13,134 +15,78 @@ export default function WorkspaceTaskBoardPage() {
     milestoneId: string;
     listId: string;
   }>();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('tarea');
+  const ctx = useDayContext();
 
   const listsQ = useTaskLists(workspaceId, projectId, milestoneId);
-  const listName = useMemo(
-    () => listsQ.data?.find((l) => l.id === listId)?.name,
-    [listsQ.data, listId],
-  );
+  const tasksQ = useTasks(workspaceId, projectId, milestoneId, listId);
+  // Mi día es personal; se cruza con la lista para marcar el ícono del sol.
+  const myDayQ = useSmartList(workspaceId, 'my-day', ctx);
 
-  const tasksQ = useTasks(
-    workspaceId,
-    projectId,
-    milestoneId,
-    listId,
-  );
-  const createTask = useCreateTask(
-    workspaceId,
-    projectId,
-    milestoneId,
-    listId,
-  );
-
-  const [title, setTitle] = useState('');
-
-  const hierarchyLoading =
-    listsQ.isPending || (!!listId && tasksQ.isPending);
-  const hierarchyError = listsQ.isError || tasksQ.isError;
-
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const t = title.trim();
-    if (!t) return;
-    await createTask.mutateAsync(t);
-    setTitle('');
-  };
-
-  const missingList = !listsQ.isPending && listId && !listsQ.data?.some((l) => l.id === listId);
+  const list = listsQ.data?.find((l) => l.id === listId);
+  const tasks = useMemo<SmartTask[]>(() => {
+    if (!tasksQ.data || !projectId || !milestoneId || !listId) return [];
+    const myDay = new Set(myDayQ.data?.map((t) => t.id));
+    return tasksQ.data.map((t: TaskDto) => ({
+      id: t.id,
+      title: t.title,
+      notes: t.notes,
+      status: t.status,
+      priority: t.priority,
+      dueAt: t.dueAt ?? null,
+      remindAt: t.remindAt ?? null,
+      completedAt: t.completedAt ?? null,
+      createdAt: t.createdAt ?? '',
+      assignee: null,
+      inMyDay: myDay.has(t.id),
+      myDayFrom: null,
+      subtaskCount: t.subtasks?.length ?? 0,
+      location: {
+        projectId,
+        projectName: '',
+        milestoneId,
+        milestoneName: '',
+        listId,
+        listName: list?.name ?? '',
+      },
+    }));
+  }, [tasksQ.data, myDayQ.data, projectId, milestoneId, listId, list?.name]);
 
   if (!workspaceId || !projectId || !milestoneId || !listId) {
-    return (
-      <div className="p-8">
-        <p className="text-sm text-red-600">Ruta incompleta.</p>
-      </div>
-    );
+    return <p className="p-8 text-sm text-red-600">Ruta incompleta.</p>;
   }
 
+  const missingList = listsQ.isSuccess && !list;
+
   return (
-    <main className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-6">
-        <Link
-          to="/"
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          ← Todos los espacios
-        </Link>
-        <h2 className="mt-2 text-lg font-semibold text-gray-900">
-          {listName ?? 'Tareas'}
-        </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Lista seleccionada en el explorador lateral
-        </p>
-      </div>
+    <div className="mx-auto max-w-3xl px-4 py-6 md:px-8">
+      <header className="mb-5 flex items-center gap-3">
+        <ListTodo className="h-7 w-7 shrink-0 text-blue-500" aria-hidden />
+        <h1 className="truncate text-2xl font-semibold text-gray-900">{list?.name ?? 'Tareas'}</h1>
+      </header>
 
-      {hierarchyLoading && (
-        <p className="text-sm text-gray-500">Cargando tareas…</p>
+      {missingList ? (
+        <p className="text-sm text-amber-800">Esta lista no existe o fue eliminada.</p>
+      ) : (
+        <>
+          <AddTaskBar workspaceId={workspaceId} ctx={ctx} target={{ projectId, milestoneId, listId }} />
+          {(listsQ.isPending || tasksQ.isPending) && <p className="mt-6 text-sm text-gray-500">Cargando tareas…</p>}
+          {(listsQ.isError || tasksQ.isError) && (
+            <p className="mt-6 text-sm text-red-600">No se pudieron cargar las tareas de esta lista.</p>
+          )}
+          {tasksQ.isSuccess && (
+            <TaskCollection
+              workspaceId={workspaceId}
+              ctx={ctx}
+              tasks={tasks}
+              showList={false}
+              highlightId={highlightId}
+              emptyText="Aún no hay tareas en esta lista."
+            />
+          )}
+        </>
       )}
-
-      {hierarchyError && (
-        <p className="text-sm text-red-600">
-          No se pudieron cargar las tareas de esta lista.
-        </p>
-      )}
-
-      {missingList && (
-        <p className="text-sm text-amber-800">Esta lista no existe en el hito.</p>
-      )}
-
-      {!hierarchyLoading &&
-        !hierarchyError &&
-        !missingList &&
-        listId && (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <form onSubmit={handleAddTask} className="mb-6 flex gap-2">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Nueva tarea…"
-                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                disabled={createTask.isPending || !title.trim()}
-                className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-              >
-                {createTask.isPending ? 'Añadiendo…' : 'Añadir'}
-              </button>
-            </form>
-            {createTask.isError && (
-              <p className="mb-4 text-sm text-red-600">
-                {(createTask.error as Error).message}
-              </p>
-            )}
-
-            <ul className="divide-y divide-gray-100">
-              {tasksQ.data?.length === 0 && (
-                <li className="py-8 text-center text-sm text-gray-500">
-                  Aún no hay tareas. Escribe un título y pulsa Añadir.
-                </li>
-              )}
-              {tasksQ.data?.map((task) => (
-                <li key={task.id} className="flex flex-col gap-1 py-3">
-                  <span className="font-medium text-gray-900">{task.title}</span>
-                  <span className="text-xs text-gray-400">
-                    {task.status} · {task.priority}
-                  </span>
-                  {task.subtasks && task.subtasks.length > 0 && (
-                    <ul className="ml-4 mt-2 space-y-1 border-l border-gray-200 pl-3">
-                      {task.subtasks.map((st) => (
-                        <li key={st.id} className="text-sm text-gray-600">
-                          {st.title}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-    </main>
+    </div>
   );
 }

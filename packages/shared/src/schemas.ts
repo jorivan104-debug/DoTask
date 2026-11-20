@@ -98,6 +98,35 @@ export const acceptInvitationSchema = z
   .object({ code: z.string().trim().min(8).max(64) })
   .strict();
 
+/*
+ * Listas inteligentes y Mi día. "Hoy" depende de la zona horaria del usuario, así que
+ * el cliente envía su fecha local (`day`) y los límites de su día en ISO.
+ */
+const localDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha AAAA-MM-DD');
+
+export const smartListKindSchema = z.enum(['my-day', 'important', 'planned', 'assigned', 'all']);
+
+export const dayContextSchema = z
+  .object({ day: localDay, dayStart: isoDate, dayEnd: isoDate })
+  .strict()
+  .refine((v) => new Date(v.dayStart) < new Date(v.dayEnd), 'dayStart debe ser anterior a dayEnd');
+
+export const addToMyDaySchema = z.object({ day: localDay }).strict();
+
+export const pushSubscriptionSchema = z
+  .object({
+    endpoint: z
+      .string()
+      .url()
+      .max(2000)
+      .refine((value) => value.startsWith('https://'), 'El endpoint debe ser https'),
+    keys: z.object({ p256dh: z.string().min(1).max(500), auth: z.string().min(1).max(500) }).strict(),
+    userAgent: z.string().max(500).optional(),
+  })
+  .strict();
+
+export const removePushSubscriptionSchema = z.object({ endpoint: z.string().max(2000) }).strict();
+
 export const devLoginSchema = z.object({ password: z.string().max(200) }).strict();
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
@@ -112,4 +141,9 @@ export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type CreateProjectLinkInput = z.infer<typeof createProjectLinkSchema>;
 export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
+export type SmartListKind = z.infer<typeof smartListKindSchema>;
+export type DayContext = z.infer<typeof dayContextSchema>;
+export type AddToMyDayInput = z.infer<typeof addToMyDaySchema>;
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionSchema>;
+export type RemovePushSubscriptionInput = z.infer<typeof removePushSubscriptionSchema>;
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;

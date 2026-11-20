@@ -14,6 +14,8 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { ProjectLinksModule } from './project-links/project-links.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { McpModule } from './mcp/mcp.module';
+import { SmartListsModule } from './smart-lists/smart-lists.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { DEFAULT_THROTTLE } from './common/throttle';
 
 @Module({
@@ -32,6 +34,8 @@ import { DEFAULT_THROTTLE } from './common/throttle';
     ProjectLinksModule,
     OAuthModule,
     McpModule,
+    SmartListsModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

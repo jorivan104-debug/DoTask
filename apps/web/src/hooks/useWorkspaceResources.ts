@@ -40,6 +40,10 @@ export interface TaskDto {
   notes: string | null;
   status: string;
   priority: string;
+  dueAt?: string | null;
+  remindAt?: string | null;
+  completedAt?: string | null;
+  createdAt?: string;
   sortOrder: number;
   subtasks?: TaskDto[];
 }

@@ -22,6 +22,8 @@ model User {
   assignedTasks      Task[]                 @relation("TaskAssignee")
   taskComments       TaskComment[]
   sentInvitations    WorkspaceInvitation[]  @relation("InvitationSender")
+  myDayEntries       MyDayEntry[]
+  pushSubscriptions  PushSubscription[]
 
   @@map("users")
 }
@@ -133,18 +135,25 @@ model Task {
   assigneeId   String?   @map("assignee_id") @db.Uuid
   parentTaskId String?   @map("parent_task_id") @db.Uuid
   sortOrder    Int       @default(0) @map("sort_order")
+  /// Cuándo se envió la notificación push del recordatorio (se limpia si cambia `remindAt`).
+  reminderSentAt    DateTime? @map("reminder_sent_at") @db.Timestamptz()
+  /// Cuándo se avisó que la tarea venció (se limpia si cambia `dueAt`).
+  overdueNotifiedAt DateTime? @map("overdue_notified_at") @db.Timestamptz()
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
 
-  list       TaskList      @relation(fields: [listId], references: [id], onDelete: Cascade)
-  assignee   User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  parent     Task?         @relation("SubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subtasks   Task[]        @relation("SubTasks")
-  comments   TaskComment[]
+  list         TaskList      @relation(fields: [listId], references: [id], onDelete: Cascade)
+  assignee     User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  parent       Task?         @relation("SubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks     Task[]        @relation("SubTasks")
+  comments     TaskComment[]
+  myDayEntries MyDayEntry[]
 
   @@index([listId, sortOrder])
   @@index([assigneeId])
   @@index([parentTaskId])
+  @@index([dueAt])
+  @@index([remindAt])
   @@map("tasks")
 }
 
@@ -177,4 +186,39 @@ model TaskComment {
 
   @@index([taskId, createdAt])
   @@map("task_comments")
+}
+
+/// "Mi día" es personal: cada usuario elige qué tareas trabaja hoy (como en Microsoft To Do).
+/// Una entrada por usuario y tarea; `day` es la fecha local del usuario. La lista se
+/// "reinicia" sola porque solo se muestran las entradas cuyo `day` es hoy.
+model MyDayEntry {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  day       DateTime @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId])
+  @@index([userId, day])
+  @@map("my_day_entries")
+}
+
+/// Suscripción Web Push (VAPID) de un navegador o celular del usuario.
+model PushSubscription {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }

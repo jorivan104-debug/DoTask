@@ -363,7 +363,25 @@ Endpoints:
 
 - `task_attachments`: adjuntos con storage S3/compatible.
 - Otros proveedores de identidad (Microsoft, correo mágico) si se necesitan.
-- Notificaciones: colas en Redis con BullMQ usando `tasks.remind_at`.
+- ~~Notificaciones: colas en Redis con BullMQ usando `tasks.remind_at`.~~ Hecho sin colas: ver §4.8.
+
+### 4.8 Mi día y notificaciones push — ✅ listo
+
+**`my_day_entries`** — "Mi día" personal por usuario (como Microsoft To Do).
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `user_id` | `uuid` | FK → `users(id)`, cascade |
+| `task_id` | `uuid` | FK → `tasks(id)`, cascade |
+| `day` | `date` | Fecha **local** del usuario en que la eligió |
+
+Único `(user_id, task_id)`; índice `(user_id, day)`. La lista se "reinicia" sola: solo se muestran las entradas cuyo `day` es hoy. Las pendientes de días anteriores aparecen en las sugerencias.
+
+**`push_subscriptions`** — dispositivos con Web Push (VAPID): `user_id`, `endpoint` (único), `p256dh`, `auth`, `user_agent`, `last_used_at`. Se borran solas cuando el servicio de push responde 404/410.
+
+**`tasks.reminder_sent_at` / `tasks.overdue_notified_at`** — marcan el aviso ya enviado; se limpian al cambiar `remind_at` / `due_at`.
+
+Envío: `TaskAlertsService` revisa cada minuto (en el propio API, sin Redis) los recordatorios que llegaron a su hora (ventana de 1 h) y las tareas vencidas (ventana de 24 h). Cada aviso se reclama con un `UPDATE … WHERE …_at IS NULL`, así que no se duplica con varias réplicas. Destinatario: el responsable o, si no tiene, los miembros del espacio. Llega a Android (Chrome y la app TWA), escritorio e iPhone/iPad con la PWA instalada en la pantalla de inicio (iOS 16.4+).
 
 ---
 
@@ -378,6 +396,21 @@ Endpoints:
 /v1/workspaces/:wid/projects/:pid/milestones/:mid/lists
 /v1/workspaces/:wid/projects/:pid/milestones/:mid/lists/:lid/tasks
 ```
+
+Listas inteligentes, Mi día y push (✅ listo):
+
+```
+GET    /v1/workspaces/:wid/navigation              # proyectos → hitos → listas con pendientes
+GET    /v1/workspaces/:wid/smart/counts?day&dayStart&dayEnd
+GET    /v1/workspaces/:wid/smart/:kind?day&dayStart&dayEnd   # my-day | important | planned | assigned | all
+GET    /v1/workspaces/:wid/my-day/suggestions?day&dayStart&dayEnd
+PUT    /v1/workspaces/:wid/my-day/:taskId          # body { day }
+DELETE /v1/workspaces/:wid/my-day/:taskId
+GET    /v1/push/config                             # clave pública VAPID
+POST   /v1/push/subscriptions | DELETE /v1/push/subscriptions | POST /v1/push/test
+```
+
+`day` es la fecha local del usuario (AAAA-MM-DD) y `dayStart`/`dayEnd` los límites de su día en ISO: el servidor no adivina zonas horarias.
 
 - Siempre validar que cada entidad hija pertenece a la cadena del workspace indicado.
 - Rutas protegidas: solo accesibles con sesión válida de un usuario autenticado con Google.
@@ -448,7 +481,8 @@ DoTask/
 1. **Fundaciones**: login con Google, upsert usuario, workspace semilla, proyectos, hitos, listas y tareas CRUD (jerarquía completa), despliegue Dokploy (API + Postgres + Redis + secretos WorkOS + migraciones Prisma versionadas + guía [DEPLOY-DOKPLOY.md](DEPLOY-DOKPLOY.md)).
 2. **Colaboración**: miembros, roles, asignaciones, listas compartidas en el marco del mismo workspace/proyecto/hito.
 3. **PWA + Capacitor**: manifest, service worker, builds iOS/Android, deep links.
-4. **Redis**: colas/notificaciones, cache de lectura.
+4. **Redis**: cache de lectura (las notificaciones ya no dependen de Redis, ver 5).
+5. **Experiencia To Do** (✅ listo): barra lateral con listas inteligentes (Mi día, Importante, Planeado, Asignado a mí, Tareas) y contadores, árbol de proyectos plegable con búsqueda, panel móvil; Mi día con sugerencias; alertas push de recordatorios y tareas vencidas.
 
 ---
 

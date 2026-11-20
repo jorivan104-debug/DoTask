@@ -17,3 +17,7 @@ export function projectDetailPath(
 export function workspaceRootPath(workspaceId: string) {
   return `/workspaces/${workspaceId}`;
 }
+
+export function smartListPath(workspaceId: string, slug: string) {
+  return `/workspaces/${workspaceId}/${slug}`;
+}

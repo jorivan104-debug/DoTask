@@ -42,10 +42,12 @@ const prisma = {
   task: {
     findFirst: jest.fn().mockResolvedValue({ id: IDS.tid, listId: IDS.lid, status: 'pending' }),
     findMany: jest.fn().mockResolvedValue([]),
+    count: jest.fn().mockResolvedValue(0),
     update: jest.fn(({ data }) => Promise.resolve({ id: IDS.tid, ...data })),
     delete: jest.fn().mockResolvedValue({}),
   },
   workspaceInvitation: { findUnique: jest.fn().mockResolvedValue(null) },
+  pushSubscription: { count: jest.fn().mockResolvedValue(0) },
 };
 
 describe('API (e2e)', () => {
@@ -203,6 +205,59 @@ describe('API (e2e)', () => {
       .get(`/v1/workspaces/no-es-uuid`)
       .set('Cookie', cookieFor(ALICE.id))
       .expect(400);
+  });
+
+  describe('listas inteligentes y Mi día', () => {
+    const day = 'day=2026-11-20&dayStart=2026-11-20T05:00:00.000Z&dayEnd=2026-11-21T05:00:00.000Z';
+    const smartUrl = (path: string) => `/v1/workspaces/${WS_ALICE}/${path}`;
+
+    it('exige sesión', async () => {
+      await request(app.getHttpServer()).get(smartUrl(`smart/counts?${day}`)).expect(401);
+    });
+
+    it('no deja ver los contadores de un espacio ajeno', async () => {
+      await request(app.getHttpServer())
+        .get(smartUrl(`smart/counts?${day}`))
+        .set('Cookie', cookieFor(BOB.id))
+        .expect(403);
+    });
+
+    it('devuelve los contadores con el día local del usuario', async () => {
+      const res = await request(app.getHttpServer())
+        .get(smartUrl(`smart/counts?${day}`))
+        .set('Cookie', cookieFor(ALICE.id))
+        .expect(200);
+      expect(res.body).toEqual({ myDay: 0, important: 0, planned: 0, assigned: 0, all: 0, overdue: 0 });
+    });
+
+    it('rechaza una lista inteligente desconocida o un día mal formado', async () => {
+      await request(app.getHttpServer())
+        .get(smartUrl(`smart/papelera?${day}`))
+        .set('Cookie', cookieFor(ALICE.id))
+        .expect(400);
+      await request(app.getHttpServer())
+        .get(smartUrl('smart/my-day?day=20-11-2026&dayStart=x&dayEnd=y'))
+        .set('Cookie', cookieFor(ALICE.id))
+        .expect(400);
+    });
+  });
+
+  describe('notificaciones push', () => {
+    it('informa si el servidor tiene push configurado', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/v1/push/config')
+        .set('Cookie', cookieFor(ALICE.id))
+        .expect(200);
+      expect(res.body).toMatchObject({ enabled: false, publicKey: null });
+    });
+
+    it('solo acepta suscripciones con endpoint https', async () => {
+      await request(app.getHttpServer())
+        .post('/v1/push/subscriptions')
+        .set('Cookie', cookieFor(ALICE.id))
+        .send({ endpoint: 'http://inseguro.example/x', keys: { p256dh: 'p', auth: 'a' } })
+        .expect(400);
+    });
   });
 
   it('limita los intentos de canjear invitaciones a 5 por minuto', async () => {

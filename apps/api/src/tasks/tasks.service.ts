@@ -75,9 +75,15 @@ export class TasksService {
       completedAt = data.status === 'completed' ? new Date() : null;
     }
 
+    // Si cambian las fechas, la tarea vuelve a ser elegible para avisos push.
+    const changed = (next: string | null | undefined, prev: Date | null) =>
+      next !== undefined && (next === null ? null : new Date(next).getTime()) !== (prev?.getTime() ?? null);
+
     return this.prisma.task.update({
       where: { id },
       data: {
+        reminderSentAt: changed(data.remindAt, current.remindAt) ? null : undefined,
+        overdueNotifiedAt: changed(data.dueAt, current.dueAt) ? null : undefined,
         title: data.title,
         notes: data.notes,
         status: data.status,

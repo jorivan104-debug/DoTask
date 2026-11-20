@@ -49,6 +49,10 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
       # URL pública del API: emisor OAuth y recurso del conector MCP de Claude (…/mcp).
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://api.app-sprint.com}
+      # Notificaciones push (npx web-push generate-vapid-keys). Vacías = push desactivado.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:soporte@app-sprint.com}
 
   web:
     build:
