@@ -5,45 +5,45 @@ import { PrismaService } from '../prisma/prisma.service';
 export class TaskListsService {
   constructor(private prisma: PrismaService) {}
 
-  findByMilestone(milestoneId: string) {
+  findByProject(projectId: string) {
     return this.prisma.taskList.findMany({
-      where: { milestoneId },
+      where: { projectId },
       orderBy: { sortOrder: 'asc' },
     });
   }
 
-  async findOneOrFail(id: string, milestoneId: string) {
+  async findOneOrFail(id: string, projectId: string) {
     const list = await this.prisma.taskList.findFirst({
-      where: { id, milestoneId },
+      where: { id, projectId },
     });
     if (!list) throw new NotFoundException('TaskList not found');
     return list;
   }
 
-  create(milestoneId: string, data: { name: string }) {
+  create(projectId: string, data: { name: string }) {
     return this.prisma.$transaction(async (tx) => {
       const maxOrder = await tx.taskList.aggregate({
-        where: { milestoneId },
+        where: { projectId },
         _max: { sortOrder: true },
       });
       const sortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
       return tx.taskList.create({
-        data: { name: data.name, milestoneId, sortOrder },
+        data: { name: data.name, projectId, sortOrder },
       });
     });
   }
 
   async update(
     id: string,
-    milestoneId: string,
+    projectId: string,
     data: { name?: string; sortOrder?: number },
   ) {
-    await this.findOneOrFail(id, milestoneId);
+    await this.findOneOrFail(id, projectId);
     return this.prisma.taskList.update({ where: { id }, data });
   }
 
-  async remove(id: string, milestoneId: string) {
-    await this.findOneOrFail(id, milestoneId);
+  async remove(id: string, projectId: string) {
+    await this.findOneOrFail(id, projectId);
     return this.prisma.taskList.delete({ where: { id } });
   }
 }

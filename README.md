@@ -32,7 +32,8 @@ DoTask/
 - **Barra lateral estilo Microsoft To Do**: listas inteligentes con contadores (Mi día, Importante, Planeado, Asignado a mí, Tareas), proyectos plegables con sus listas, búsqueda, creación rápida de proyectos y listas, y panel deslizable en el celular.
 - **Mi día**: lista personal que se reinicia cada día, con panel de **Sugerencias** (pendientes de días anteriores, vencidas, para hoy, próximos 7 días, importantes).
 - **Notificaciones push** en celular y computador (Web Push): recordatorios y avisos de tareas vencidas. Requiere `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` en el API (ver [docs/DEPLOY-DOKPLOY.md](docs/DEPLOY-DOKPLOY.md)).
-- **Conector MCP** para que Claude lea y cree tareas.
+- **Panel de detalle de la tarea** como en To Do: pasos, Mi día, recordatorio, vencimiento, inicio, repetición, estado, responsable, categorías, archivos de Google Drive, chats de Claude y nota.
+- **Conector MCP** para que Claude revise, cree, edite y complete tareas.
 
 ## Desarrollo local
 
@@ -76,8 +77,10 @@ El frontend estará en `http://localhost:5173` y el API en `http://localhost:300
 ## Modelo de datos
 
 ```
-Workspace → Project → Milestone → TaskList → Task
+Workspace → Project → TaskList → Task → TaskStep
 ```
+
+Las tareas siguen el modelo de Microsoft To Do: pasos, estado, importancia (estrella), inicio, vencimiento, recordatorio, repetición, categorías del espacio, archivos de Google Drive y chats de Claude vinculados (solo enlaces; DoTask no almacena archivos).
 
 Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle completo de arquitectura, base de datos y decisiones técnicas.
 
@@ -86,15 +89,15 @@ Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle
 - Sesión: cookie `dotask_session` **firmada** (HMAC-SHA256, caducidad 7 días) con `SESSION_SECRET`. Las cookies antiguas sin firmar se rechazan.
 - Login con Google: flujo de código con `state` y PKCE (S256); se verifica el `id_token` y se exige correo verificado. Las cuentas previas se vinculan por correo en el primer acceso.
 - Toda entrada se valida con los esquemas Zod de `packages/shared` (campos desconocidos → 400).
-- Cada ruta comprueba la membresía del espacio y la cadena proyecto → hito → lista → tarea.
+- Cada ruta comprueba la membresía del espacio y que el proyecto, la lista o la tarea pertenezcan a ese espacio.
 - `helmet`, límite de 120 peticiones/min por cliente y 5/min en `invitations/accept` y `dev-login`.
 
 ## Conector de Claude (MCP)
 
 DoTask expone un servidor MCP remoto en `https://api.app-sprint.com/mcp` para añadirlo en Claude como conector personalizado.
 
-- **Lectura** (scope `tasks:read`): `list_workspaces`, `list_projects` (proyectos con hitos y listas), `list_lists`, `list_members`, `list_tasks` (filtros por espacio, lista, estado, fechas, texto y asignadas a mí) y `get_task`.
-- **Creación** (scope `tasks:write`): `create_project` (con hito «Backlog» y lista «Tareas», como en la app), `create_milestone`, `create_list` y `create_task` (título, notas, fecha límite, recordatorio, prioridad, responsable —`me`, correo o id de un miembro— y subtareas). Solo crean: no editan ni borran.
+- **Lectura** (scope `tasks:read`): `list_workspaces`, `list_projects` (proyectos con sus listas), `list_lists`, `list_members`, `list_categories`, `list_tasks` (filtros por espacio, lista, estado, fechas, texto, asignadas a mí, importantes, Mi día y categoría), `list_tasks_for_chat` y `get_task`.
+- **Escritura** (scope `tasks:write`): `create_project` (con la lista «Tareas»), `create_list`, `create_task` (pasos, fechas, recordatorio, repetición, categorías, Mi día y chat vinculado), `update_task`, `complete_task` (con nota opcional como comentario), `add_step`, `toggle_step`, `add_to_my_day` y `link_task_to_chat`. **Nunca borran.** Los cambios quedan marcados con `source = claude`.
 - Todo se limita a los espacios del usuario y reutiliza los servicios y esquemas de la API REST, así que Claude puede hacer lo mismo que el usuario en la app y nada más. Si el cliente no pide scopes, se conceden ambos; un token antiguo de solo lectura no ve las herramientas de creación hasta reconectar el conector.
 - **Autorización**: servidor OAuth 2.1 propio (Google no admite el registro dinámico de clientes): `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/oauth/register`, `/oauth/authorize` (pide el login con Google y una pantalla «Permitir»), `/oauth/token` (PKCE S256 obligatorio, tokens de 1 h y refresco de 30 días).
 - Los tokens son valores firmados con `SESSION_SECRET` (sin tablas nuevas). No se revocan uno a uno: cambiar `SESSION_SECRET` invalida todos (y las sesiones web).

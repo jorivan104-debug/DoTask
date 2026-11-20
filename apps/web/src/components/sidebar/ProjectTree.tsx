@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, FolderClosed, FolderOpen, ListTodo, Plus } from 'lucide-react';
 import { type NavProject, useCreateListInProject } from '../../hooks/useSmartLists';
-import { projectDetailPath, workspaceTaskBoardPath } from '../../lib/workspacePaths';
+import { listPath, projectDetailPath } from '../../lib/workspacePaths';
 import { readStored, writeStored } from '../../lib/storage';
 import SidebarItem from './SidebarItem';
 
@@ -34,10 +34,8 @@ export default function ProjectTree({ workspaceId, projects, selectedProjectId, 
   const visible = projects
     .map((p) => {
       if (!query || normalize(p.name).includes(query)) return p;
-      const milestones = p.milestones
-        .map((m) => ({ ...m, lists: m.lists.filter((l) => normalize(l.name).includes(query)) }))
-        .filter((m) => m.lists.length > 0);
-      return milestones.length ? { ...p, milestones } : null;
+      const lists = p.lists.filter((l) => normalize(l.name).includes(query));
+      return lists.length ? { ...p, lists } : null;
     })
     .filter((p): p is NavProject => p !== null);
 
@@ -50,7 +48,6 @@ export default function ProjectTree({ workspaceId, projects, selectedProjectId, 
       {visible.map((project) => {
         const isOpen = !!query || (expanded[project.id] ?? true);
         const isSelected = project.id === selectedProjectId;
-        const showMilestones = project.milestones.length > 1;
         const FolderIcon = isOpen ? FolderOpen : FolderClosed;
         return (
           <li key={project.id}>
@@ -79,30 +76,21 @@ export default function ProjectTree({ workspaceId, projects, selectedProjectId, 
             </div>
             {isOpen && (
               <div className="mt-0.5 space-y-0.5">
-                {project.milestones.map((m) => (
-                  <div key={m.id}>
-                    {showMilestones && (
-                      <p className="truncate pl-8 pr-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                        {m.name}
-                      </p>
-                    )}
-                    <ul className="space-y-0.5">
-                      {m.lists.map((l) => (
-                        <li key={l.id}>
-                          <SidebarItem
-                            to={workspaceTaskBoardPath(workspaceId, project.id, m.id, l.id)}
-                            icon={ListTodo}
-                            iconClassName="text-blue-500"
-                            label={l.name}
-                            count={l.openCount}
-                            indent
-                            onNavigate={onNavigate}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                <ul className="space-y-0.5">
+                  {project.lists.map((l) => (
+                    <li key={l.id}>
+                      <SidebarItem
+                        to={listPath(workspaceId, l.id)}
+                        icon={ListTodo}
+                        iconClassName="text-blue-500"
+                        label={l.name}
+                        count={l.openCount}
+                        indent
+                        onNavigate={onNavigate}
+                      />
+                    </li>
+                  ))}
+                </ul>
                 {!query && <NewListForm workspaceId={workspaceId} project={project} />}
               </div>
             )}
@@ -117,15 +105,12 @@ function NewListForm({ workspaceId, project }: { workspaceId: string; project: N
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const createList = useCreateListInProject(workspaceId);
-  // Mientras exista el nivel "hito", la lista nueva va al último hito del proyecto.
-  const milestone = project.milestones[project.milestones.length - 1];
-  if (!milestone) return null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const value = name.trim();
     if (!value) return;
-    await createList.mutateAsync({ projectId: project.id, milestoneId: milestone.id, name: value });
+    await createList.mutateAsync({ projectId: project.id, name: value });
     setName('');
     setOpen(false);
   };

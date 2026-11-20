@@ -84,6 +84,7 @@ Interpolación: `${VARIABLE}` en `docker-compose.yml`; valores por defecto solo 
 | `SESSION_SECRET` | **Obligatoria.** Firma de las cookies, 48+ caracteres aleatorios (`openssl rand -base64 48`). Al cambiarla se cierran todas las sesiones |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Claves de las notificaciones push. Generar **una sola vez** con `npx web-push generate-vapid-keys` (cambiarlas invalida las suscripciones de todos los dispositivos). Vacías = app sin push |
 | `VAPID_SUBJECT` | Contacto para los servicios de push, `mailto:…` (por defecto `mailto:soporte@app-sprint.com`) |
+| `GOOGLE_PICKER_API_KEY` / `GOOGLE_CLOUD_PROJECT_NUMBER` | Opcionales. Selector de archivos de Google Drive (ver §6). Sin ellas, los archivos se vinculan pegando su enlace |
 | `TASK_ALERTS_ENABLED` | Opcional. `false` desactiva la revisión de recordatorios en esa instancia |
 | `POSTGRES_PASSWORD` | Contraseña del servicio `postgres` (por defecto `dotask`). **Solo se aplica al crear el volumen**: en una base existente cámbiala con `ALTER USER` antes de tocar la variable |
 
@@ -143,6 +144,18 @@ Los usuarios creados con WorkOS se conservan: en su primer login con Google se v
 
 ---
 
+### Selector de Google Drive (opcional)
+
+DoTask no guarda archivos: el usuario elige archivos de su Drive y se guarda solo el enlace.
+
+1. En el mismo proyecto de Google Cloud del login: **APIs y servicios → Biblioteca** → habilitar **Google Picker API** y **Google Drive API**.
+2. **Credenciales → Crear credenciales → Clave de API**; restringirla a «Sitios web» con el dominio del front (`https://dotaskweb.app-sprint.com/*`) y a las dos APIs anteriores → `GOOGLE_PICKER_API_KEY`.
+3. En el **ID de cliente OAuth** existente, añadir el origen del front (`https://dotaskweb.app-sprint.com`) en «Orígenes de JavaScript autorizados».
+4. **Pantalla de consentimiento → Permisos**: añadir el alcance `…/auth/drive.file` (solo los archivos que el usuario elige; no requiere verificación restringida).
+5. El número del proyecto (Panel → «Número del proyecto») → `GOOGLE_CLOUD_PROJECT_NUMBER`.
+
+---
+
 ## 7. Checklist rápido antes de desplegar
 
 1. En Dokploy: variables del §3 definidas para el entorno del compose.
@@ -150,6 +163,7 @@ Los usuarios creados con WorkOS se conservan: en su primer login con Google se v
 3. Google Cloud: cliente OAuth con la URI de redirección de producción y pantalla de consentimiento publicada.
 4. **Preview Compose** en Dokploy: revisar fusión de redes y labels con el `docker-compose.yml` del repo.
 5. Tras el primer deploy con DB vacía, confirmar en logs del `api` que **`migrate deploy`** aplicó la migración inicial.
+7. **Migración `20261121120000_tareas_estilo_todo`** (elimina hitos y convierte subtareas en pasos): hacer un respaldo de Postgres antes (`pg_dump`). Es de un solo sentido.
 6. Notificaciones push: `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` definidas; en la app, barra lateral → «Alertas en este dispositivo» → activar y «Enviar notificación de prueba». En iPhone, primero Compartir → «Agregar a inicio» y abrir DoTask desde ese ícono.
 
 ---

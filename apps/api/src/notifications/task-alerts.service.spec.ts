@@ -12,13 +12,10 @@ const task = (id: string, assigneeId: string | null = null) => ({
   list: {
     id: 'l1',
     name: 'Tareas',
-    milestone: {
-      id: 'm1',
-      project: {
-        id: 'p1',
-        workspaceId: 'w1',
-        workspace: { members: [{ userId: 'u1' }, { userId: 'u2' }] },
-      },
+    project: {
+      id: 'p1',
+      workspaceId: 'w1',
+      workspace: { members: [{ userId: 'u1' }, { userId: 'u2' }] },
     },
   },
 });
@@ -42,7 +39,7 @@ describe('TaskAlertsService', () => {
   it('busca recordatorios de la última hora aún no enviados de tareas abiertas', async () => {
     await service.sendReminders(NOW);
     expect(prisma.task.findMany.mock.calls[0][0].where).toEqual({
-      status: { notIn: ['completed', 'cancelled'] },
+      status: { not: 'completed' },
       reminderSentAt: null,
       remindAt: { lte: NOW, gte: new Date('2026-11-20T14:00:00Z') },
     });
@@ -58,7 +55,7 @@ describe('TaskAlertsService', () => {
     expect(push.sendToUsers).toHaveBeenCalledWith(['u9'], {
       title: 'Tarea vencida',
       body: 'Tarea t1 · Tareas',
-      url: '/workspaces/w1/p/p1/m/m1/l/l1?tarea=t1',
+      url: '/workspaces/w1/l/l1?tarea=t1',
       tag: 'overdue-t1',
     });
   });

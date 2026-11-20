@@ -52,9 +52,12 @@ export default function PrivacyPage() {
             contraseña ni los tokens de acceso de Google.
           </p>
           <p>
-            <strong>Contenido que creas.</strong> Los espacios de trabajo, proyectos, hitos, listas,
-            tareas, comentarios, enlaces e invitaciones que añades a la aplicación, junto con sus
-            fechas, y la lista de miembros de cada espacio y sus roles.
+            <strong>Contenido que creas.</strong> Los espacios de trabajo, proyectos, listas,
+            tareas (con sus pasos, categorías y fechas), comentarios, enlaces e invitaciones que añades a la
+            aplicación, y la lista de miembros de cada espacio y sus roles. De los archivos de Google Drive
+            que vinculas a una tarea solo se guarda el nombre y el enlace: el archivo sigue en tu Drive y
+            DoTask no lo copia ni lo almacena. Si activas las notificaciones, se guarda la dirección de
+            entrega del navegador o celular que las recibe.
           </p>
           <p>
             <strong>Datos técnicos.</strong> Para proteger el servicio, nuestro servidor procesa la

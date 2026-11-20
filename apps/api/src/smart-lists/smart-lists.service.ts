@@ -2,96 +2,45 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { DayContext, SmartListKind } from '@dotask/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { taskSummarySelect, toDbDay, toTaskSummary, type TaskSummaryDto } from '../tasks/task-view';
 
-/** Estados que cuentan como "pendiente" en las listas inteligentes. */
-const OPEN_STATUS = { notIn: ['completed', 'cancelled'] };
+export { toDbDay } from '../tasks/task-view';
+
+/** Pendiente = cualquier estado salvo completada (aplazadas y en espera incluidas, como en To Do). */
+const OPEN_STATUS = { not: 'completed' };
 const SUGGESTION_LIMIT = 20;
 const UPCOMING_DAYS = 7;
 
-/** Prisma guarda `@db.Date` como medianoche UTC. */
-export const toDbDay = (day: string) => new Date(`${day}T00:00:00.000Z`);
-const fromDbDay = (date: Date) => date.toISOString().slice(0, 10);
-
-const taskSelect = (userId: string) =>
-  ({
-    id: true,
-    title: true,
-    notes: true,
-    status: true,
-    priority: true,
-    dueAt: true,
-    remindAt: true,
-    completedAt: true,
-    createdAt: true,
-    assignee: { select: { id: true, displayName: true } },
-    myDayEntries: { where: { userId }, select: { day: true } },
-    _count: { select: { subtasks: true } },
-    list: {
-      select: {
-        id: true,
-        name: true,
-        milestone: { select: { id: true, name: true, project: { select: { id: true, name: true } } } },
-      },
-    },
-  }) satisfies Prisma.TaskSelect;
-
-type SelectedTask = Prisma.TaskGetPayload<{ select: ReturnType<typeof taskSelect> }>;
-
-export interface SmartTaskDto {
-  id: string;
-  title: string;
-  notes: string | null;
-  status: string;
-  priority: string;
-  dueAt: Date | null;
-  remindAt: Date | null;
-  completedAt: Date | null;
-  createdAt: Date;
-  assignee: { id: string; displayName: string } | null;
-  /** La tarea está en "Mi día" del usuario hoy. */
-  inMyDay: boolean;
-  /** Estuvo en "Mi día" un día anterior y quedó pendiente. */
-  myDayFrom: string | null;
-  subtaskCount: number;
-  location: {
-    projectId: string;
-    projectName: string;
-    milestoneId: string;
-    milestoneName: string;
-    listId: string;
-    listName: string;
-  };
-}
-
 export interface MyDaySuggestions {
-  fromEarlierDays: SmartTaskDto[];
-  overdue: SmartTaskDto[];
-  today: SmartTaskDto[];
-  upcoming: SmartTaskDto[];
-  important: SmartTaskDto[];
+  fromEarlierDays: TaskSummaryDto[];
+  overdue: TaskSummaryDto[];
+  today: TaskSummaryDto[];
+  upcoming: TaskSummaryDto[];
+  important: TaskSummaryDto[];
 }
+
+type Row = Prisma.TaskGetPayload<{ select: ReturnType<typeof taskSummarySelect> }>;
 
 /**
  * Listas inteligentes al estilo Microsoft To Do (Mi día, Importante, Planeado,
- * Asignado a mí, Tareas) y la navegación de la barra lateral. Recibe el
- * `workspaceId` ya validado por el controlador (membresía del usuario).
+ * Asignado a mí, Tareas), la vista de una lista y la navegación de la barra
+ * lateral. Recibe el `workspaceId` ya validado por el controlador.
  */
 @Injectable()
 export class SmartListsService {
   constructor(private prisma: PrismaService) {}
 
-  /** Tareas de primer nivel (no subtareas) del espacio de trabajo. */
   private inWorkspace(workspaceId: string): Prisma.TaskWhereInput {
-    return { parentTaskId: null, list: { milestone: { project: { workspaceId } } } };
+    return { list: { project: { workspaceId } } };
   }
 
   whereFor(kind: SmartListKind, userId: string, ctx: DayContext): Prisma.TaskWhereInput {
     switch (kind) {
       case 'my-day':
         // Incluye las completadas hoy para mostrarlas en la sección "Completadas".
-        return { myDayEntries: { some: { userId, day: toDbDay(ctx.day) } }, status: { not: 'cancelled' } };
+        return { myDayEntries: { some: { userId, day: toDbDay(ctx.day) } } };
       case 'important':
-        return { priority: 'high', status: OPEN_STATUS };
+        return { importance: 'high', status: OPEN_STATUS };
       case 'planned':
         return { dueAt: { not: null }, status: OPEN_STATUS };
       case 'assigned':
@@ -104,14 +53,30 @@ export class SmartListsService {
   async list(kind: SmartListKind, workspaceId: string, userId: string, ctx: DayContext) {
     const tasks = await this.prisma.task.findMany({
       where: { ...this.inWorkspace(workspaceId), ...this.whereFor(kind, userId, ctx) },
-      select: taskSelect(userId),
+      select: taskSummarySelect(userId),
       orderBy:
         kind === 'planned'
           ? [{ dueAt: 'asc' }, { createdAt: 'asc' }]
           : [{ dueAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
       take: 500,
     });
-    return tasks.map((t) => this.toDto(t, ctx.day));
+    return tasks.map((t) => toTaskSummary(t, ctx.day));
+  }
+
+  /** Todas las tareas de una lista (pendientes y completadas) en el orden de la lista. */
+  async listTasks(workspaceId: string, listId: string, userId: string, ctx: DayContext) {
+    const list = await this.prisma.taskList.findFirst({
+      where: { id: listId, project: { workspaceId } },
+      select: { id: true, name: true, project: { select: { id: true, name: true } } },
+    });
+    if (!list) throw new NotFoundException('TaskList not found');
+    const tasks = await this.prisma.task.findMany({
+      where: { listId },
+      select: taskSummarySelect(userId),
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      take: 1000,
+    });
+    return { list, tasks: tasks.map((t) => toTaskSummary(t, ctx.day)) };
   }
 
   /** Pendientes por lista inteligente, para los contadores de la barra lateral. */
@@ -148,7 +113,7 @@ export class SmartListsService {
     const find = (where: Prisma.TaskWhereInput, orderBy: Prisma.TaskOrderByWithRelationInput[]) =>
       this.prisma.task.findMany({
         where: { ...base, ...where },
-        select: taskSelect(userId),
+        select: taskSummarySelect(userId),
         orderBy,
         take: SUGGESTION_LIMIT,
       });
@@ -161,17 +126,18 @@ export class SmartListsService {
           OR: [
             { dueAt: { gte: dayStart, lt: dayEnd } },
             { remindAt: { gte: dayStart, lt: dayEnd } },
+            { startAt: { gte: dayStart, lt: dayEnd } },
           ],
         },
         [{ dueAt: { sort: 'asc', nulls: 'last' } }],
       ),
       find({ dueAt: { gte: dayEnd, lt: upcomingEnd } }, [{ dueAt: 'asc' }]),
-      find({ priority: 'high' }, [{ dueAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }]),
+      find({ importance: 'high' }, [{ dueAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }]),
     ]);
 
     const seen = new Set<string>();
-    const unique = (tasks: SelectedTask[]) =>
-      tasks.filter((t) => !seen.has(t.id) && seen.add(t.id)).map((t) => this.toDto(t, ctx.day));
+    const unique = (tasks: Row[]) =>
+      tasks.filter((t) => !seen.has(t.id) && seen.add(t.id)).map((t) => toTaskSummary(t, ctx.day));
 
     return {
       fromEarlierDays: unique(fromEarlierDays),
@@ -198,7 +164,7 @@ export class SmartListsService {
     return { taskId, inMyDay: false };
   }
 
-  /** Árbol proyecto → hito → lista con el número de tareas pendientes de cada lista. */
+  /** Proyectos con sus listas y el número de tareas pendientes de cada lista. */
   async navigation(workspaceId: string) {
     const projects = await this.prisma.project.findMany({
       where: { workspaceId },
@@ -206,19 +172,12 @@ export class SmartListsService {
       select: {
         id: true,
         name: true,
-        milestones: {
+        taskLists: {
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           select: {
             id: true,
             name: true,
-            taskLists: {
-              orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-              select: {
-                id: true,
-                name: true,
-                _count: { select: { tasks: { where: { parentTaskId: null, status: OPEN_STATUS } } } },
-              },
-            },
+            _count: { select: { tasks: { where: { status: OPEN_STATUS } } } },
           },
         },
       },
@@ -226,46 +185,15 @@ export class SmartListsService {
     return projects.map((p) => ({
       id: p.id,
       name: p.name,
-      milestones: p.milestones.map((m) => ({
-        id: m.id,
-        name: m.name,
-        lists: m.taskLists.map((l) => ({ id: l.id, name: l.name, openCount: l._count.tasks })),
-      })),
+      lists: p.taskLists.map((l) => ({ id: l.id, name: l.name, openCount: l._count.tasks })),
     }));
   }
 
   private async assertTaskInWorkspace(workspaceId: string, taskId: string) {
     const task = await this.prisma.task.findFirst({
-      where: { id: taskId, list: { milestone: { project: { workspaceId } } } },
+      where: { id: taskId, ...this.inWorkspace(workspaceId) },
       select: { id: true },
     });
     if (!task) throw new NotFoundException('Task not found');
-  }
-
-  private toDto(t: SelectedTask, day: string): SmartTaskDto {
-    const entryDay = t.myDayEntries[0] ? fromDbDay(t.myDayEntries[0].day) : null;
-    return {
-      id: t.id,
-      title: t.title,
-      notes: t.notes,
-      status: t.status,
-      priority: t.priority,
-      dueAt: t.dueAt,
-      remindAt: t.remindAt,
-      completedAt: t.completedAt,
-      createdAt: t.createdAt,
-      assignee: t.assignee,
-      inMyDay: entryDay === day,
-      myDayFrom: entryDay && entryDay < day ? entryDay : null,
-      subtaskCount: t._count.subtasks,
-      location: {
-        projectId: t.list.milestone.project.id,
-        projectName: t.list.milestone.project.name,
-        milestoneId: t.list.milestone.id,
-        milestoneName: t.list.milestone.name,
-        listId: t.list.id,
-        listName: t.list.name,
-      },
-    };
   }
 }

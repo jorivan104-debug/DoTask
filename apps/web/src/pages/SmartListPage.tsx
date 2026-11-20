@@ -9,6 +9,7 @@ import { smartListByKind, type SmartListKind } from '../lib/smartLists';
 import AddTaskBar from '../components/tasks/AddTaskBar';
 import TaskCollection from '../components/tasks/TaskCollection';
 import SuggestionsPanel from '../components/my-day/SuggestionsPanel';
+import { DESKTOP_QUERY, useMediaQuery } from '../hooks/useMediaQuery';
 
 /** Vista de una lista inteligente: Mi día, Importante, Planeado, Asignado a mí o Tareas. */
 export default function SmartListPage({ kind }: { kind: SmartListKind }) {
@@ -18,6 +19,7 @@ export default function SmartListPage({ kind }: { kind: SmartListKind }) {
   const def = smartListByKind(kind);
   const listQ = useSmartList(workspaceId, kind, ctx);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const isMyDay = kind === 'my-day';
   const Icon = def.icon;
 
@@ -25,7 +27,7 @@ export default function SmartListPage({ kind }: { kind: SmartListKind }) {
 
   const defaults =
     kind === 'important'
-      ? { priority: 'high' as const }
+      ? { importance: 'high' as const }
       : kind === 'planned'
         ? { dueAt: endOfToday() }
         : undefined;
@@ -82,15 +84,10 @@ export default function SmartListPage({ kind }: { kind: SmartListKind }) {
       </div>
 
       {isMyDay && showSuggestions && (
-        <>
-          {/* Escritorio: panel lateral. Móvil: hoja a pantalla completa. */}
-          <div className="hidden w-80 shrink-0 border-l border-gray-200 lg:block">
-            <SuggestionsPanel workspaceId={workspaceId} ctx={ctx} onClose={() => setShowSuggestions(false)} />
-          </div>
-          <div className="fixed inset-0 z-40 bg-white lg:hidden">
-            <SuggestionsPanel workspaceId={workspaceId} ctx={ctx} onClose={() => setShowSuggestions(false)} />
-          </div>
-        </>
+        // Escritorio: panel lateral. Móvil: hoja a pantalla completa.
+        <div className={isDesktop ? 'w-80 shrink-0 border-l border-gray-200' : 'fixed inset-0 z-40 bg-white'}>
+          <SuggestionsPanel workspaceId={workspaceId} ctx={ctx} onClose={() => setShowSuggestions(false)} />
+        </div>
       )}
     </div>
   );

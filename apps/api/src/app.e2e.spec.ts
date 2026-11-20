@@ -17,11 +17,10 @@ const BOB = { id: '22222222-2222-4222-8222-222222222222', email: 'b@x.com', disp
 const WS_ALICE = '33333333-3333-4333-8333-333333333333';
 const IDS = {
   pid: '44444444-4444-4444-8444-444444444444',
-  mid: '55555555-5555-4555-8555-555555555555',
   lid: '66666666-6666-4666-8666-666666666666',
   tid: '77777777-7777-4777-8777-777777777777',
 };
-const taskUrl = `/v1/workspaces/${WS_ALICE}/projects/${IDS.pid}/milestones/${IDS.mid}/lists/${IDS.lid}/tasks`;
+const taskUrl = `/v1/workspaces/${WS_ALICE}/tasks`;
 
 const users: Record<string, typeof ALICE> = { [ALICE.id]: ALICE, [BOB.id]: BOB };
 const members = new Set([`${WS_ALICE}:${ALICE.id}`]);
@@ -37,10 +36,9 @@ const prisma = {
   },
   workspace: { findMany: jest.fn().mockResolvedValue([]) },
   project: { findFirst: jest.fn().mockResolvedValue({ id: IDS.pid }) },
-  milestone: { findFirst: jest.fn().mockResolvedValue({ id: IDS.mid }) },
   taskList: { findFirst: jest.fn().mockResolvedValue({ id: IDS.lid }) },
   task: {
-    findFirst: jest.fn().mockResolvedValue({ id: IDS.tid, listId: IDS.lid, status: 'pending' }),
+    findFirst: jest.fn().mockResolvedValue({ id: IDS.tid, listId: IDS.lid, status: 'not_started', dueAt: null, remindAt: null }),
     findMany: jest.fn().mockResolvedValue([]),
     count: jest.fn().mockResolvedValue(0),
     update: jest.fn(({ data }) => Promise.resolve({ id: IDS.tid, ...data })),
@@ -48,6 +46,7 @@ const prisma = {
   },
   workspaceInvitation: { findUnique: jest.fn().mockResolvedValue(null) },
   pushSubscription: { count: jest.fn().mockResolvedValue(0) },
+  $transaction: jest.fn((fn: (tx: unknown) => unknown): unknown => fn(prisma as unknown)),
 };
 
 describe('API (e2e)', () => {

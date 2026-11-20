@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation, useMatch, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useMatch, useParams, useSearchParams } from 'react-router-dom';
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { readStored, writeStored } from '../../lib/storage';
+import { DESKTOP_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import AppSidebar from '../sidebar/AppSidebar';
+import TaskDetailPanel from '../task-detail/TaskDetailPanel';
+import { TASK_PARAM } from '../tasks/TaskRow';
 
 const COLLAPSED_KEY = 'dotask.sidebar.collapsed';
 
@@ -14,6 +17,14 @@ export default function WorkspaceLayout() {
   const projectId = projectMatch?.params.projectId;
   const { logout } = useAuth();
   const { pathname } = useLocation();
+  const [params, setParams] = useSearchParams();
+  const openTaskId = params.get(TASK_PARAM);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const closeTask = () => {
+    const next = new URLSearchParams(params);
+    next.delete(TASK_PARAM);
+    setParams(next);
+  };
 
   /** Escritorio: barra fija que se puede ocultar. Móvil: panel deslizable. */
   const [collapsed, setCollapsed] = useState(() => readStored(COLLAPSED_KEY, false));
@@ -108,6 +119,13 @@ export default function WorkspaceLayout() {
         <div className="min-h-0 flex-1 overflow-auto">
           <Outlet />
         </div>
+
+        {openTaskId && (
+          // Escritorio: panel a la derecha. Móvil: pantalla completa.
+          <div className={isDesktop ? 'w-[360px] shrink-0 border-l border-gray-200' : 'fixed inset-0 z-40'}>
+            <TaskDetailPanel key={openTaskId} workspaceId={workspaceId} taskId={openTaskId} onClose={closeTask} />
+          </div>
+        )}
       </div>
     </div>
   );

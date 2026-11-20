@@ -6,7 +6,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 import { ProjectsModule } from './projects/projects.module';
-import { MilestonesModule } from './milestones/milestones.module';
 import { TaskListsModule } from './task-lists/task-lists.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CommentsModule } from './comments/comments.module';
@@ -14,6 +13,8 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { ProjectLinksModule } from './project-links/project-links.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { McpModule } from './mcp/mcp.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { CategoriesModule } from './categories/categories.module';
 import { SmartListsModule } from './smart-lists/smart-lists.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DEFAULT_THROTTLE } from './common/throttle';
@@ -26,7 +27,6 @@ import { DEFAULT_THROTTLE } from './common/throttle';
     AuthModule,
     WorkspacesModule,
     ProjectsModule,
-    MilestonesModule,
     TaskListsModule,
     TasksModule,
     CommentsModule,
@@ -35,6 +35,8 @@ import { DEFAULT_THROTTLE } from './common/throttle';
     OAuthModule,
     McpModule,
     SmartListsModule,
+    CategoriesModule,
+    IntegrationsModule,
     NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

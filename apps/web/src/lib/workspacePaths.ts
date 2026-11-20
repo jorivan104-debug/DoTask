@@ -1,16 +1,8 @@
-export function workspaceTaskBoardPath(
-  workspaceId: string,
-  projectId: string,
-  milestoneId: string,
-  listId: string,
-) {
-  return `/workspaces/${workspaceId}/p/${projectId}/m/${milestoneId}/l/${listId}`;
+export function listPath(workspaceId: string, listId: string) {
+  return `/workspaces/${workspaceId}/l/${listId}`;
 }
 
-export function projectDetailPath(
-  workspaceId: string,
-  projectId: string,
-) {
+export function projectDetailPath(workspaceId: string, projectId: string) {
   return `/workspaces/${workspaceId}/p/${projectId}`;
 }
 

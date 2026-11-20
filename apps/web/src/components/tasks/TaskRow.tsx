@@ -1,7 +1,10 @@
-import { Bell, Check, ListTree, Star, Sun, SunDim } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Bell, Check, ListChecks, Paperclip, Repeat, Star, Sun, SunDim } from 'lucide-react';
 import type { DayContext } from '../../lib/day';
 import { dueLabel, isOverdue } from '../../lib/day';
-import { type SmartTask, useToggleMyDay, useUpdateTaskAnywhere } from '../../hooks/useSmartLists';
+import { type SmartTask, useToggleMyDay, useUpdateTask } from '../../hooks/useSmartLists';
+import { CategoryChip } from '../task-detail/CategoriesRow';
+import { STATUS_LABELS } from '../../lib/taskStatus';
 
 type Props = {
   workspaceId: string;
@@ -9,72 +12,62 @@ type Props = {
   ctx: DayContext;
   /** Mostrar la lista de origen (en vistas que mezclan listas). */
   showList?: boolean;
-  /** Resaltar la fila (p. ej. al abrir desde una notificación). */
-  highlighted?: boolean;
   /** Ocultar la etiqueta "Mi día" (en la propia vista Mi día sobra). */
   hideMyDayTag?: boolean;
 };
 
-/** Fila de tarea al estilo To Do: casilla, título, detalles y estrella. */
-export default function TaskRow({ workspaceId, task, ctx, showList = true, highlighted = false, hideMyDayTag = false }: Props) {
-  const update = useUpdateTaskAnywhere(workspaceId);
+export const TASK_PARAM = 'tarea';
+
+/** Fila de tarea al estilo To Do: casilla, título, detalles y estrella. Al tocarla abre el detalle. */
+export default function TaskRow({ workspaceId, task, ctx, showList = true, hideMyDayTag = false }: Props) {
+  const [params, setParams] = useSearchParams();
+  const update = useUpdateTask(workspaceId);
   const toggleMyDay = useToggleMyDay(workspaceId, ctx);
   const completed = task.status === 'completed';
-  const important = task.priority === 'high';
+  const important = task.importance === 'high';
   const overdue = !completed && isOverdue(task.dueAt);
+  const selected = params.get(TASK_PARAM) === task.id;
 
-  const toggleComplete = () =>
-    update.mutate({
-      taskId: task.id,
-      location: task.location,
-      patch: { status: completed ? 'pending' : 'completed' },
-    });
-
-  const toggleImportant = () =>
-    update.mutate({
-      taskId: task.id,
-      location: task.location,
-      patch: { priority: important ? 'none' : 'high' },
-    });
+  const open = () => {
+    const next = new URLSearchParams(params);
+    next.set(TASK_PARAM, task.id);
+    setParams(next);
+  };
 
   const details: React.ReactNode[] = [];
   if (task.inMyDay && !hideMyDayTag) {
-    details.push(
-      <span key="day" className="inline-flex items-center gap-1">
-        <Sun className="h-3 w-3" aria-hidden /> Mi día
-      </span>,
-    );
+    details.push(<span key="day" className="inline-flex items-center gap-1"><Sun className="h-3 w-3" aria-hidden /> Mi día</span>);
   }
   if (showList) details.push(<span key="list">{task.location.listName}</span>);
-  if (task.subtaskCount > 0) {
-    details.push(
-      <span key="sub" className="inline-flex items-center gap-1">
-        <ListTree className="h-3 w-3" aria-hidden /> {task.subtaskCount}
-      </span>,
-    );
+  if (!completed && task.status !== 'not_started') {
+    details.push(<span key="status" className="font-medium text-amber-700">{STATUS_LABELS[task.status]}</span>);
+  }
+  if (task.stepCount > 0) {
+    details.push(<span key="steps" className="inline-flex items-center gap-1"><ListChecks className="h-3 w-3" aria-hidden /> {task.stepsDone} de {task.stepCount}</span>);
   }
   if (task.dueAt) {
     details.push(
-      <span key="due" className={overdue ? 'font-medium text-red-600' : ''}>
+      <span key="due" className={`inline-flex items-center gap-1 ${overdue ? 'font-medium text-red-600' : ''}`}>
         {overdue ? 'Vencida · ' : ''}
         {dueLabel(task.dueAt)}
+        {task.isRecurring && <Repeat className="h-3 w-3" aria-label="Se repite" />}
       </span>,
     );
   }
-  if (task.remindAt && !completed) {
-    details.push(<Bell key="remind" className="h-3 w-3" aria-label="Con recordatorio" />);
-  }
+  if (task.remindAt && !completed) details.push(<Bell key="remind" className="h-3 w-3" aria-label="Con recordatorio" />);
+  if (task.linkCount > 0) details.push(<Paperclip key="links" className="h-3 w-3" aria-label="Con archivos o enlaces" />);
   if (task.assignee) details.push(<span key="who">{task.assignee.displayName}</span>);
+  for (const c of task.categories) details.push(<CategoryChip key={`c-${c.id}`} category={c} small />);
 
   return (
     <li
-      className={`group flex items-center gap-3 rounded-md bg-white px-3 py-2.5 shadow-sm ring-1 transition ${
-        highlighted ? 'ring-2 ring-blue-400' : 'ring-gray-200 hover:bg-gray-50'
+      className={`group flex items-center gap-3 rounded-md px-3 py-2.5 shadow-sm ring-1 transition ${
+        selected ? 'bg-blue-50 ring-blue-300' : 'bg-white ring-gray-200 hover:bg-gray-50'
       }`}
     >
       <button
         type="button"
-        onClick={toggleComplete}
+        onClick={() => update.mutate({ taskId: task.id, patch: { status: completed ? 'not_started' : 'completed' } })}
         disabled={update.isPending}
         aria-label={completed ? 'Marcar como pendiente' : 'Marcar como completada'}
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
@@ -84,12 +77,10 @@ export default function TaskRow({ workspaceId, task, ctx, showList = true, highl
         <Check className="h-3 w-3" strokeWidth={3} />
       </button>
 
-      <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-          {task.title}
-        </p>
+      <button type="button" onClick={open} className="min-w-0 flex-1 text-left" aria-label={`Abrir ${task.title}`}>
+        <p className={`truncate text-sm ${completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{task.title}</p>
         {details.length > 0 && (
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500">
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-gray-500">
             {details.map((d, i) => (
               <span key={i} className="inline-flex items-center gap-1.5">
                 {i > 0 && <span aria-hidden>·</span>}
@@ -98,7 +89,7 @@ export default function TaskRow({ workspaceId, task, ctx, showList = true, highl
             ))}
           </p>
         )}
-      </div>
+      </button>
 
       {!completed && (
         <button
@@ -110,7 +101,7 @@ export default function TaskRow({ workspaceId, task, ctx, showList = true, highl
           className={`rounded p-1 transition ${
             task.inMyDay
               ? 'text-amber-500 hover:text-amber-600'
-              : 'text-gray-300 opacity-100 hover:text-amber-500 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100'
+              : 'text-gray-300 hover:text-amber-500 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100'
           }`}
         >
           {task.inMyDay ? <Sun className="h-[18px] w-[18px]" /> : <SunDim className="h-[18px] w-[18px]" />}
@@ -119,7 +110,7 @@ export default function TaskRow({ workspaceId, task, ctx, showList = true, highl
 
       <button
         type="button"
-        onClick={toggleImportant}
+        onClick={() => update.mutate({ taskId: task.id, patch: { importance: important ? 'normal' : 'high' } })}
         disabled={update.isPending}
         title={important ? 'Quitar de importantes' : 'Marcar como importante'}
         aria-label={important ? 'Quitar de importantes' : 'Marcar como importante'}

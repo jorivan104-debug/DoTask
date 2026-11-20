@@ -3,7 +3,8 @@ const escapeHtml = (value: string) =>
 
 const SCOPE_TEXT: Record<string, string> = {
   'tasks:read': 'Ver tus espacios de trabajo, listas, tareas y comentarios',
-  'tasks:write': 'Crear proyectos, hitos, listas y tareas en tus espacios de trabajo (no puede editar ni borrar)',
+  'tasks:write':
+    'Crear proyectos, listas y tareas, y editar o completar tareas (pasos, Mi día, fechas, vínculos) en tus espacios de trabajo. Nunca borra nada',
 };
 
 const layout = (title: string, body: string) => `<!doctype html>

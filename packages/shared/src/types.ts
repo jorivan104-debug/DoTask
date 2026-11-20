@@ -1,8 +1,6 @@
 export type WorkspaceRole = 'owner' | 'member' | 'guest';
 
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-
-export type TaskPriority = 'none' | 'low' | 'medium' | 'high';
+import type { Recurrence, TaskImportance, TaskStatus } from './schemas';
 
 export interface UserDto {
   id: string;
@@ -35,22 +33,38 @@ export interface ProjectDto {
   createdAt: string;
 }
 
-export interface MilestoneDto {
+export interface TaskListDto {
   id: string;
   projectId: string;
   name: string;
-  description: string | null;
-  targetDate: string | null;
-  achievedAt: string | null;
   sortOrder: number;
   createdAt: string;
 }
 
-export interface TaskListDto {
+export interface TaskStepDto {
   id: string;
-  milestoneId: string;
-  name: string;
+  taskId: string;
+  title: string;
+  isChecked: boolean;
+  checkedAt: string | null;
   sortOrder: number;
+}
+
+export interface CategoryDto {
+  id: string;
+  workspaceId: string;
+  name: string;
+  color: string;
+}
+
+export interface LinkedResourceDto {
+  id: string;
+  taskId: string;
+  applicationName: string;
+  displayName: string;
+  externalId: string | null;
+  webUrl: string | null;
+  mimeType: string | null;
   createdAt: string;
 }
 
@@ -60,12 +74,14 @@ export interface TaskDto {
   title: string;
   notes: string | null;
   status: TaskStatus;
-  priority: TaskPriority;
+  importance: TaskImportance;
+  startAt: string | null;
   dueAt: string | null;
   remindAt: string | null;
+  timezone: string | null;
+  recurrence: Recurrence | null;
   completedAt: string | null;
   assigneeId: string | null;
-  parentTaskId: string | null;
   sortOrder: number;
   createdAt: string;
 }
