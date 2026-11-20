@@ -47,13 +47,18 @@ export class SessionService {
     return typeof userId === 'string' ? userId : null;
   }
 
-  /** Datos firmados de corta vida (p. ej. `state` y PKCE del login con Google). */
-  sealJson<T>(data: T, ttlMs: number, now = Date.now()): string {
-    return this.seal(DATA_PURPOSE, data, ttlMs, now);
+  /**
+   * Datos firmados de corta vida (p. ej. `state` y PKCE del login con Google).
+   * `purpose` separa usos distintos: un token sellado para uno no sirve para otro.
+   */
+  sealJson<T>(data: T, ttlMs: number, now = Date.now(), purpose = DATA_PURPOSE): string {
+    if (purpose === SESSION_PURPOSE) throw new Error('Usa sign() para sesiones');
+    return this.seal(purpose, data, ttlMs, now);
   }
 
-  openJson<T>(token: string | undefined, now = Date.now()): T | null {
-    return this.open<T>(DATA_PURPOSE, token, now);
+  openJson<T>(token: string | undefined, now = Date.now(), purpose = DATA_PURPOSE): T | null {
+    if (purpose === SESSION_PURPOSE) return null;
+    return this.open<T>(purpose, token, now);
   }
 
   private seal<T>(purpose: string, data: T, ttlMs: number, now: number): string {

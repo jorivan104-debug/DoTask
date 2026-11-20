@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.appsprint.dotask",
+      "sha256_cert_fingerprints": ["0D:58:2B:5E:2E:7A:E7:22:F6:22:4B:39:95:E0:EF:F7:08:8B:6D:15:10:30:46:A3:18:64:12:7B:2C:07:8F:10"]
+    }
+  }
+]

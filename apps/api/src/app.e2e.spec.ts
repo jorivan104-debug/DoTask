@@ -5,6 +5,8 @@ import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
 import { PrismaService } from './prisma/prisma.service';
 import { SessionService, SESSION_COOKIE } from './auth/session.service';
+import { randomBytes } from 'crypto';
+import { challengeFor, DESKTOP_CODE_PURPOSE } from './auth/desktop-login';
 
 /**
  * Pruebas HTTP de extremo a extremo con la base de datos simulada:
@@ -92,6 +94,59 @@ describe('API (e2e)', () => {
       expect(res.headers.location).toBe('http://localhost:5173/login?error=google');
       const cookies = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
       expect(cookies.some((c) => c.startsWith(`${SESSION_COOKIE}=v1.`))).toBe(false);
+    });
+
+    describe('app de escritorio', () => {
+      const verifier = randomBytes(32).toString('base64url');
+      const challenge = challengeFor(verifier);
+      const exchange = (code: string, v = verifier) =>
+        request(app.getHttpServer()).get(
+          `/v1/auth/desktop/exchange?code=${encodeURIComponent(code)}&verifier=${encodeURIComponent(v)}`,
+        );
+      const codeFor = (uid: string, ch = challenge, purpose = DESKTOP_CODE_PURPOSE) =>
+        app.get(SessionService).sealJson({ uid, ch }, 60_000, undefined, purpose);
+
+      it('exige un reto PKCE válido para iniciar el login', async () => {
+        const res = await request(app.getHttpServer()).get('/v1/auth/login?client=desktop').expect(302);
+        expect(res.headers.location).toBe('http://localhost:5173/login?error=escritorio');
+      });
+
+      it('guarda el reto en la cookie temporal y redirige a Google', async () => {
+        const res = await request(app.getHttpServer())
+          .get(`/v1/auth/login?client=desktop&challenge=${challenge}`)
+          .expect(302);
+        expect(new URL(res.headers.location).hostname).toBe('accounts.google.com');
+        const raw = ([] as string[])
+          .concat(res.headers['set-cookie'])
+          .find((c) => c.startsWith('dotask_oauth='))!
+          .split(';')[0]
+          .slice('dotask_oauth='.length);
+        const pending = app.get(SessionService).openJson<{ desktopChallenge?: string }>(decodeURIComponent(raw));
+        expect(pending?.desktopChallenge).toBe(challenge);
+      });
+
+      it('canjea código + verificador por la cookie de sesión', async () => {
+        const res = await exchange(codeFor(ALICE.id)).expect(302);
+        expect(res.headers.location).toBe('http://localhost:5173');
+        const session = ([] as string[]).concat(res.headers['set-cookie']).find((c) => c.startsWith(`${SESSION_COOKIE}=`));
+        expect(session).toMatch(/HttpOnly/i);
+        const token = decodeURIComponent(session!.split(';')[0].slice(SESSION_COOKIE.length + 1));
+        expect(app.get(SessionService).verify(token)).toBe(ALICE.id);
+      });
+
+      it('rechaza un código interceptado si no se tiene el verificador', async () => {
+        const res = await exchange(codeFor(ALICE.id), randomBytes(32).toString('base64url')).expect(302);
+        expect(res.headers.location).toBe('http://localhost:5173/login?error=escritorio');
+        expect(res.headers['set-cookie']).toBeUndefined();
+      });
+
+      it('rechaza tokens de otros usos como código (sesión o datos temporales)', async () => {
+        const sessions = app.get(SessionService);
+        for (const code of [sessions.sign(ALICE.id), sessions.sealJson({ uid: ALICE.id, ch: challenge }, 60_000)]) {
+          const res = await exchange(code).expect(302);
+          expect(res.headers.location).toBe('http://localhost:5173/login?error=escritorio');
+        }
+      });
     });
 
     it('vuelve a /login?error=cancelado si el usuario cancela en Google', async () => {

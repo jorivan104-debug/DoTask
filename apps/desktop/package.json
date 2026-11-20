@@ -1,0 +1,48 @@
+{
+  "name": "dotask-desktop",
+  "productName": "DoTask",
+  "version": "1.0.0",
+  "description": "DoTask para Windows: gestión de tareas personal y en equipo",
+  "author": "DoTask (app-sprint.com)",
+  "homepage": "https://dotaskweb.app-sprint.com",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.appsprint.dotask",
+    "productName": "DoTask",
+    "copyright": "DoTask",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": ["main.js", "auth.js", "pages/**"],
+    "protocols": [
+      {
+        "name": "DoTask",
+        "schemes": ["dotask"]
+      }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico",
+      "artifactName": "DoTask-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DoTask",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

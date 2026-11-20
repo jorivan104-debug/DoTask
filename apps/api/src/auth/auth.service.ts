@@ -10,6 +10,8 @@ const GOOGLE_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
 export interface PendingLogin {
   state: string;
   codeVerifier: string;
+  /** Solo en el login de la app de escritorio: reto PKCE generado por la app. */
+  desktopChallenge?: string;
 }
 
 export interface GoogleProfile {

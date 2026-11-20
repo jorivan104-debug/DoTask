@@ -12,6 +12,7 @@ import { useWorkspaces } from './hooks/useWorkspaces';
 import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
 import PrivacyPage from './pages/PrivacyPage';
+import AppOpenPage from './pages/AppOpenPage';
 import DashboardPage from './pages/DashboardPage';
 import OnboardingPage from './pages/OnboardingPage';
 import WorkspaceLayout from './components/workspace/WorkspaceLayout';
@@ -93,6 +94,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
+          <Route path="/app/abrir" element={<AppOpenPage />} />
           <Route
             path="/onboarding"
             element={

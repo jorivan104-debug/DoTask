@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'DoTask',
         short_name: 'DoTask',
@@ -21,6 +21,7 @@ export default defineConfig({
         icons: [
           { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
     }),

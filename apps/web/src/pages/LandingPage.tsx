@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import PublicLayout from '../components/public/PublicLayout';
+import DownloadSection from '../components/public/DownloadSection';
 import { useAuth } from '../hooks/useAuth';
 import { APP_NAME } from '../lib/legal';
 
@@ -49,12 +50,12 @@ export default function LandingPage() {
           >
             Continuar con Google
           </button>
-          <Link
-            to="/privacidad"
+          <a
+            href="#descargas"
             className="w-full rounded-lg px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
-            Cómo tratamos tus datos
-          </Link>
+            Descargar la app
+          </a>
         </div>
       </section>
 
@@ -68,6 +69,8 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      <DownloadSection />
 
       <section className="mx-auto max-w-3xl px-6 py-16">
         <h2 className="text-2xl font-bold tracking-tight text-gray-900">Cómo empezar</h2>

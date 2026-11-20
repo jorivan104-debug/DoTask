@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from '../lib/api';
 const LOGIN_ERRORS: Record<string, string> = {
   cancelado: 'Cancelaste el inicio de sesión con Google.',
   google: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
+  escritorio: 'El inicio de sesión de la app de escritorio caducó. Pulsa «Continuar con Google» otra vez.',
 };
 
 export default function LoginPage() {
