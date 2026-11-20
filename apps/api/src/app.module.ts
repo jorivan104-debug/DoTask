@@ -12,6 +12,8 @@ import { TasksModule } from './tasks/tasks.module';
 import { CommentsModule } from './comments/comments.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { ProjectLinksModule } from './project-links/project-links.module';
+import { OAuthModule } from './oauth/oauth.module';
+import { McpModule } from './mcp/mcp.module';
 import { DEFAULT_THROTTLE } from './common/throttle';
 
 @Module({
@@ -28,6 +30,8 @@ import { DEFAULT_THROTTLE } from './common/throttle';
     CommentsModule,
     InvitationsModule,
     ProjectLinksModule,
+    OAuthModule,
+    McpModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

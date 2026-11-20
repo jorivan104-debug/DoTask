@@ -62,6 +62,7 @@ export class AuthController {
   async login(
     @Query('client') client: string | undefined,
     @Query('challenge') challenge: string | undefined,
+    @Query('returnTo') returnTo: string | undefined,
     @Res() res: Response,
   ) {
     if (client === 'desktop' && !isValidChallenge(challenge)) {
@@ -69,6 +70,7 @@ export class AuthController {
     }
     const { url, pending } = await this.auth.startGoogleLogin();
     if (client === 'desktop') pending.desktopChallenge = challenge;
+    if (isSafeReturnTo(returnTo)) pending.returnTo = returnTo;
     res.cookie(OAUTH_COOKIE, this.sessions.sealJson(pending, OAUTH_TTL_MS), {
       ...this.cookieOptions(),
       maxAge: OAUTH_TTL_MS,
@@ -106,6 +108,7 @@ export class AuthController {
         return res.redirect(`${this.frontendUrl()}/app/abrir?code=${encodeURIComponent(sealed)}`);
       }
       this.setSessionCookie(res, user.id);
+      if (isSafeReturnTo(pending?.returnTo)) return res.redirect(pending.returnTo);
       return res.redirect(this.frontendUrl());
     } catch {
       return res.redirect(`${this.frontendUrl()}/login?error=google`);
@@ -164,4 +167,9 @@ export class AuthController {
   private frontendUrl(): string {
     return this.config.get('FRONTEND_URL', 'http://localhost:5173');
   }
+}
+
+/** Solo se vuelve a la pantalla de autorización OAuth del propio API (evita redirecciones abiertas). */
+export function isSafeReturnTo(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('/oauth/authorize?') && !value.includes('//');
 }
