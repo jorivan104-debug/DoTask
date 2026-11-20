@@ -86,7 +86,9 @@ Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle
 
 DoTask expone un servidor MCP remoto en `https://api.app-sprint.com/mcp` para añadirlo en Claude como conector personalizado.
 
-- **Herramientas (solo lectura)**: `list_workspaces`, `list_lists`, `list_tasks` (filtros por espacio, lista, estado, fechas, texto y asignadas a mí) y `get_task`. Siempre limitadas a los espacios del usuario.
+- **Lectura** (scope `tasks:read`): `list_workspaces`, `list_projects` (proyectos con hitos y listas), `list_lists`, `list_members`, `list_tasks` (filtros por espacio, lista, estado, fechas, texto y asignadas a mí) y `get_task`.
+- **Creación** (scope `tasks:write`): `create_project` (con hito «Backlog» y lista «Tareas», como en la app), `create_milestone`, `create_list` y `create_task` (título, notas, fecha límite, recordatorio, prioridad, responsable —`me`, correo o id de un miembro— y subtareas). Solo crean: no editan ni borran.
+- Todo se limita a los espacios del usuario y reutiliza los servicios y esquemas de la API REST, así que Claude puede hacer lo mismo que el usuario en la app y nada más. Si el cliente no pide scopes, se conceden ambos; un token antiguo de solo lectura no ve las herramientas de creación hasta reconectar el conector.
 - **Autorización**: servidor OAuth 2.1 propio (Google no admite el registro dinámico de clientes): `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/oauth/register`, `/oauth/authorize` (pide el login con Google y una pantalla «Permitir»), `/oauth/token` (PKCE S256 obligatorio, tokens de 1 h y refresco de 30 días).
 - Los tokens son valores firmados con `SESSION_SECRET` (sin tablas nuevas). No se revocan uno a uno: cambiar `SESSION_SECRET` invalida todos (y las sesiones web).
 - El token del conector solo sirve en `/mcp`; la API REST sigue exigiendo la cookie de la web.

@@ -33,7 +33,7 @@ export class McpController {
       return res.status(403).json({ error: 'insufficient_scope' });
     }
 
-    const server = this.servers.create(auth.userId);
+    const server = this.servers.create(auth.userId, auth.scopes);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

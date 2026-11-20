@@ -103,9 +103,10 @@ describe('OAuthService', () => {
     });
 
     it('normaliza los alcances', () => {
-      expect(normalizeScope(undefined)).toBe('tasks:read');
+      expect(normalizeScope(undefined)).toBe('tasks:read tasks:write');
       expect(normalizeScope('tasks:read tasks:read admin')).toBe('tasks:read');
-      expect(normalizeScope('admin')).toBe('tasks:read');
+      expect(normalizeScope('tasks:write tasks:read')).toBe('tasks:write tasks:read');
+      expect(normalizeScope('admin')).toBe('tasks:read tasks:write');
     });
 
     it('el ticket de consentimiento solo sirve al usuario que vio la pantalla', () => {
@@ -141,15 +142,17 @@ describe('OAuthService', () => {
         redirect_uri: CLAUDE_CALLBACK,
         code_verifier: verifier,
       });
-      expect(tokens).toMatchObject({ token_type: 'Bearer', expires_in: 3600, scope: 'tasks:read' });
-      expect(oauth.verifyAccessToken(tokens.access_token)).toEqual({ userId: 'u-7', scopes: ['tasks:read'] });
+      expect(tokens).toMatchObject({ token_type: 'Bearer', expires_in: 3600, scope: 'tasks:read tasks:write' });
+      expect(oauth.verifyAccessToken(tokens.access_token)).toEqual({ userId: 'u-7', scopes: ['tasks:read', 'tasks:write'] });
     });
 
     it('rechaza verificador, cliente o redirect_uri incorrectos', () => {
       const { clientId, code } = grantCode();
       const base = { grant_type: 'authorization_code', code, client_id: clientId, redirect_uri: CLAUDE_CALLBACK };
       expectOAuthError(() => oauth.exchangeToken({ ...base, code_verifier: randomBytes(32).toString('base64url') }), 'invalid_grant');
-      expectOAuthError(() => oauth.exchangeToken({ ...base, code_verifier: verifier, client_id: register().client_id }), 'invalid_grant');
+      // Otro cliente (nombre distinto: dos registros idénticos en el mismo instante dan el mismo client_id).
+      const other = oauth.registerClient({ client_name: 'Otro', redirect_uris: [CLAUDE_CALLBACK] }).client_id;
+      expectOAuthError(() => oauth.exchangeToken({ ...base, code_verifier: verifier, client_id: other }), 'invalid_grant');
       expectOAuthError(() => oauth.exchangeToken({ ...base, code_verifier: verifier, redirect_uri: 'https://claude.ai/otro' }), 'invalid_grant');
       expectOAuthError(() => oauth.exchangeToken({ ...base, code: 'basura', code_verifier: verifier }), 'invalid_grant');
     });
