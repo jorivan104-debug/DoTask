@@ -50,7 +50,7 @@ El login es con cuenta de Google mediante OAuth 2.0 / OpenID Connect, sin interm
 5. Cualquier error (cancelación, `state` inválido, correo sin verificar) redirige a `/login?error=cancelado|google` sin crear sesión.
 6. Conector MCP de Claude: Google no permite el registro dinámico de clientes que usa claude.ai, así que DoTask es su propio servidor de autorización OAuth 2.1 (`/oauth/*`), que delega la identidad en este login de Google. El servidor MCP (`/mcp`) solo acepta `Authorization: Bearer` de ese servidor; la API REST solo acepta la cookie.
 
-**Estado (conector de solo lectura, punto 2.9): listo** — herramientas `list_workspaces`, `list_lists`, `list_tasks`, `get_task`.
+**Estado (punto 2.9): listo** — lectura: `list_workspaces`, `list_projects`, `list_lists`, `list_members`, `list_tasks`, `get_task`; creación (scope `tasks:write`): `create_project`, `create_milestone`, `create_list`, `create_task`.
 
 **Estado (Fase 1 de seguridad): listo** — sesión firmada, control de acceso por espacio en todas las rutas (incluidas tareas por id y comentarios), validación Zod con lista blanca de campos, `helmet`, límites de peticiones y canje atómico de invitaciones.
 

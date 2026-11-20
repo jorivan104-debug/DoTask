@@ -16,8 +16,9 @@ import { isValidChallenge, verifierMatches } from '../auth/desktop-login';
  * los códigos no son de un solo uso (los protege PKCE y su vida de 5 min) y los
  * tokens no se pueden revocar uno a uno (sí todos, rotando SESSION_SECRET).
  */
-export const SUPPORTED_SCOPES = ['tasks:read'] as const;
-export const DEFAULT_SCOPE = 'tasks:read';
+export const SUPPORTED_SCOPES = ['tasks:read', 'tasks:write'] as const;
+/** Si el cliente no pide scopes concretos (claude.ai no lo hace), se conceden lectura y creación. */
+export const DEFAULT_SCOPE = 'tasks:read tasks:write';
 
 const PURPOSE = {
   client: 'oauth-client',
@@ -298,7 +299,7 @@ export function isAllowedRedirectUri(value: unknown): boolean {
   }
 }
 
-/** Se queda con los alcances soportados; sin ninguno válido, `tasks:read`. */
+/** Se queda con los alcances soportados; sin ninguno válido, `DEFAULT_SCOPE`. */
 export function normalizeScope(scope: unknown): string {
   const requested = typeof scope === 'string' ? scope.split(/\s+/).filter(Boolean) : [];
   const allowed = requested.filter((s) => (SUPPORTED_SCOPES as readonly string[]).includes(s));

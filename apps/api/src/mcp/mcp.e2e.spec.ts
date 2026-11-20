@@ -19,10 +19,20 @@ const prisma = {
   user: { findUnique: jest.fn(({ where }) => Promise.resolve(where.id === USER.id ? USER : null)) },
   workspaceMember: {
     findMany: jest.fn().mockResolvedValue([{ role: 'owner', workspace: { id: 'ws-1', name: 'Personal' } }]),
+    findUnique: jest.fn().mockResolvedValue({ id: 'm-1' }),
+    findFirst: jest.fn().mockResolvedValue(null),
   },
-  task: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
-  taskList: { findMany: jest.fn().mockResolvedValue([]) },
+  task: {
+    findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+    aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 2 } }),
+    create: jest.fn(({ data }) => Promise.resolve({ id: TASK_ID, ...data })),
+  },
+  taskList: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
 };
+
+const LIST_ID = '22222222-2222-4222-8222-222222222222';
+const TASK_ID = '33333333-3333-4333-8333-333333333333';
 
 describe('Conector MCP (e2e)', () => {
   let app: INestApplication;
@@ -57,7 +67,7 @@ describe('Conector MCP (e2e)', () => {
     return res.body.client_id as string;
   }
 
-  const authorizeUrl = (clientId: string) =>
+  const authorizeUrl = (clientId: string, scope = 'tasks:read') =>
     `/oauth/authorize?${new URLSearchParams({
       response_type: 'code',
       client_id: clientId,
@@ -65,13 +75,13 @@ describe('Conector MCP (e2e)', () => {
       code_challenge: challengeFor(verifier),
       code_challenge_method: 'S256',
       state: 'st-1',
-      scope: 'tasks:read',
+      scope,
       resource: `${API}/mcp`,
     })}`;
 
-  async function obtainAccessToken() {
+  async function obtainAccessToken(scope = 'tasks:read') {
     const clientId = await registerClient();
-    const page = await request(app.getHttpServer()).get(authorizeUrl(clientId)).set('Cookie', sessionCookie()).expect(200);
+    const page = await request(app.getHttpServer()).get(authorizeUrl(clientId, scope)).set('Cookie', sessionCookie()).expect(200);
     const ticket = /name="ticket" value="([^"]+)"/.exec(page.text)![1];
     const decision = await request(app.getHttpServer())
       .post('/oauth/authorize/decision')
@@ -150,6 +160,8 @@ describe('Conector MCP (e2e)', () => {
     expect(tools.body.result.tools.map((t: { name: string }) => t.name).sort()).toEqual([
       'get_task',
       'list_lists',
+      'list_members',
+      'list_projects',
       'list_tasks',
       'list_workspaces',
     ]);
@@ -184,6 +196,71 @@ describe('Conector MCP (e2e)', () => {
       params: { name: 'get_task', arguments: { task_id: '99999999-9999-4999-8999-999999999999' } },
     }).expect(200);
     expect(missing.body.result.isError).toBe(true);
+  });
+
+  it('con tasks:write ofrece herramientas de creación y crea tareas solo en listas accesibles', async () => {
+    const token = await obtainAccessToken('tasks:read tasks:write');
+    const tools = await rpc(token, { jsonrpc: '2.0', id: 6, method: 'tools/list', params: {} }).expect(200);
+    const names = tools.body.result.tools.map((t: { name: string }) => t.name);
+    expect(names).toEqual(expect.arrayContaining(['create_project', 'create_milestone', 'create_list', 'create_task']));
+    const createTask = tools.body.result.tools.find((t: { name: string }) => t.name === 'create_task');
+    expect(createTask.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+
+    // Lista ajena o inexistente: error legible y nada creado.
+    const denied = await rpc(token, {
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'tools/call',
+      params: { name: 'create_task', arguments: { list_id: LIST_ID, title: 'Hola' } },
+    }).expect(200);
+    expect(denied.body.result.isError).toBe(true);
+    expect(denied.body.result.content[0].text).toContain('Lista no encontrada');
+    expect(prisma.taskList.findFirst.mock.calls.at(-1)[0].where.milestone.project.workspace).toEqual({
+      members: { some: { userId: USER.id } },
+    });
+    expect(prisma.task.create).not.toHaveBeenCalled();
+
+    // Lista accesible: se crea con el usuario como responsable.
+    prisma.taskList.findFirst.mockResolvedValueOnce({
+      id: LIST_ID,
+      name: 'Tareas',
+      milestone: { name: 'Backlog', project: { name: 'Web', workspaceId: 'ws-1' } },
+    });
+    prisma.user.findUnique.mockImplementationOnce(() => Promise.resolve(USER));
+    const created = await rpc(token, {
+      jsonrpc: '2.0',
+      id: 8,
+      method: 'tools/call',
+      params: {
+        name: 'create_task',
+        arguments: { list_id: LIST_ID, title: 'Preparar informe', notes: 'Q4', due_at: '2026-12-01T17:00:00-05:00', assignee: 'me' },
+      },
+    }).expect(200);
+    expect(created.body.result.isError).toBeFalsy();
+    const data = prisma.task.create.mock.calls.at(-1)![0].data;
+    expect(data).toMatchObject({ listId: LIST_ID, title: 'Preparar informe', notes: 'Q4', assigneeId: USER.id, status: 'pending', sortOrder: 3 });
+    expect(data.dueAt).toEqual(new Date('2026-12-01T22:00:00Z'));
+    expect(JSON.parse(created.body.result.content[0].text).location.list).toBe('Tareas');
+  });
+
+  it('un token de solo lectura no puede crear', async () => {
+    const token = await obtainAccessToken('tasks:read');
+    const res = await rpc(token, {
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: { name: 'create_project', arguments: { workspace_id: '44444444-4444-4444-8444-444444444444', name: 'X' } },
+    }).expect(200);
+    expect(res.body.result?.isError ?? res.body.error).toBeTruthy();
+  });
+
+  it('la pantalla de consentimiento describe el permiso de creación', async () => {
+    const clientId = await registerClient();
+    const res = await request(app.getHttpServer())
+      .get(authorizeUrl(clientId, 'tasks:read tasks:write'))
+      .set('Cookie', sessionCookie())
+      .expect(200);
+    expect(res.text).toContain('Crear proyectos, hitos, listas y tareas');
   });
 
   it('el login ignora returnTo hacia otros sitios (sin redirección abierta)', async () => {
