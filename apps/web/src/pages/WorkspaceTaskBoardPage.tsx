@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   type TaskDto,
+  useProject,
   useTaskLists,
   useTasks,
   useCreateTask,
@@ -12,6 +13,8 @@ import EmptyState from '../components/feedback/EmptyState';
 import Celebration from '../components/feedback/Celebration';
 import { AddIcon, MyTasksIcon } from '../components/icons';
 import { playSound } from '../lib/playSound';
+import { projectDetailPath } from '../lib/workspacePaths';
+import BackLink from '../components/navigation/BackLink';
 
 const FIRST_COMPLETE_KEY = 'dotask:first-complete';
 /** Tiempo que una tarea recién completada se queda en su sitio para ver la animación. */
@@ -37,6 +40,7 @@ export default function WorkspaceTaskBoardPage() {
     listId: string;
   }>();
 
+  const projectQ = useProject(workspaceId, projectId);
   const listsQ = useTaskLists(workspaceId, projectId, milestoneId);
   const listName = useMemo(
     () => listsQ.data?.find((l) => l.id === listId)?.name,
@@ -113,12 +117,10 @@ export default function WorkspaceTaskBoardPage() {
   const toRow = (task: TaskDto) => task;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <main className="mx-auto max-w-3xl px-4 pb-16 pt-4 sm:px-6 sm:pt-8">
       <div className="mb-6">
-        <Link to="/" className="text-sm font-semibold text-brand hover:text-brand-strong">
-          ← Todos los espacios
-        </Link>
-        <div className="mt-3 flex items-center gap-3">
+        <BackLink to={projectDetailPath(workspaceId, projectId)} label={projectQ.data?.name ?? 'Proyecto'} />
+        <div className="mt-1 flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-soft text-brand">
             <MyTasksIcon size={22} />
           </span>

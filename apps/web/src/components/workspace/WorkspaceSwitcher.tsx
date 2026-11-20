@@ -32,7 +32,7 @@ export default function WorkspaceSwitcher({ currentWorkspaceId }: Props) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex max-w-[min(280px,70vw)] items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm font-medium text-ink shadow-sm hover:border-line-strong hover:bg-canvas"
+        className="flex min-h-10 max-w-full items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-sm font-semibold text-ink shadow-sm hover:border-line-strong hover:bg-canvas sm:max-w-[280px]"
         aria-expanded={open}
         aria-haspopup="listbox"
       >

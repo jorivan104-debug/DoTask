@@ -2,8 +2,16 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProjects } from '../hooks/useWorkspaceResources';
 import { projectDetailPath } from '../lib/workspacePaths';
+import { useIsDesktop } from '../hooks/useMediaQuery';
+import ProjectsOverviewPage from './ProjectsOverviewPage';
 
+/** Celular: lista de proyectos. Escritorio: abre el primer proyecto (la columna lateral muestra el resto). */
 export default function WorkspaceIndexRedirect() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <OpenFirstProject /> : <ProjectsOverviewPage />;
+}
+
+function OpenFirstProject() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
   const projectsQ = useProjects(workspaceId);

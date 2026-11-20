@@ -5,11 +5,18 @@
 import {
   Bell,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Ellipsis,
+  Flag,
   Folder,
+  LayoutGrid,
   ListChecks,
+  LogOut,
   Plus,
   SquareCheckBig,
+  Trash2,
   type LucideProps,
 } from 'lucide-react';
 
@@ -34,3 +41,12 @@ export const CompleteIcon = withDefaults(SquareCheckBig, 'CompleteIcon');
 /** Por vencer: reloj. */
 export const DueSoonIcon = withDefaults(Clock, 'DueSoonIcon');
 export const AddIcon = withDefaults(Plus, 'AddIcon');
+export const BackIcon = withDefaults(ChevronLeft, 'BackIcon');
+export const ForwardIcon = withDefaults(ChevronRight, 'ForwardIcon');
+export const MoreIcon = withDefaults(Ellipsis, 'MoreIcon');
+/** Hitos: bandera. */
+export const MilestoneIcon = withDefaults(Flag, 'MilestoneIcon');
+/** Espacios de trabajo. */
+export const SpacesIcon = withDefaults(LayoutGrid, 'SpacesIcon');
+export const LogoutIcon = withDefaults(LogOut, 'LogoutIcon');
+export const DeleteIcon = withDefaults(Trash2, 'DeleteIcon');

@@ -89,13 +89,13 @@
 @layer components {
   /* Botón principal: el azul de marca guía la acción. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_2px_0_0_var(--color-brand-strong)] transition duration-150 hover:-translate-y-px hover:bg-brand-strong hover:shadow-[0_3px_0_0_#163a9f] active:translate-y-px active:shadow-none disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_2px_0_0_var(--color-brand-strong)] transition duration-150 hover:-translate-y-px hover:bg-brand-strong hover:shadow-[0_3px_0_0_#163a9f] active:translate-y-px active:shadow-none disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-line-strong hover:bg-canvas disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-line-strong hover:bg-canvas disabled:opacity-50;
   }
   .input {
-    @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
+    @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-base text-ink sm:text-sm placeholder:text-muted/70 transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
   }
   .card {
     @apply rounded-[var(--radius-card)] border border-line/70 bg-surface shadow-[var(--shadow-card)];
