@@ -78,6 +78,22 @@ describe('TasksService', () => {
 
     beforeEach(() => prisma.task.findFirst.mockResolvedValue(current));
 
+    it('reactiva los avisos push cuando cambian el vencimiento o el recordatorio', async () => {
+      prisma.task.findFirst.mockResolvedValue({
+        ...current,
+        dueAt: new Date('2026-11-20T15:00:00Z'),
+        remindAt: new Date('2026-11-20T14:00:00Z'),
+      });
+      const moved = await service.update('t-1', LIST, WS, { dueAt: '2026-11-21T15:00:00Z' });
+      expect(moved).toMatchObject({ overdueNotifiedAt: null, reminderSentAt: undefined });
+
+      const same = await service.update('t-1', LIST, WS, {
+        dueAt: '2026-11-20T10:00:00-05:00',
+        remindAt: null,
+      });
+      expect(same).toMatchObject({ overdueNotifiedAt: undefined, reminderSentAt: null });
+    });
+
     it('fija completedAt en el servidor al completar', async () => {
       const result = await service.update('t-1', LIST, WS, { status: 'completed' });
       expect(result.completedAt).toBeInstanceOf(Date);

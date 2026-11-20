@@ -82,6 +82,9 @@ Interpolación: `${VARIABLE}` en `docker-compose.yml`; valores por defecto solo 
 | `GOOGLE_REDIRECT_URI` | `https://api.app-sprint.com/v1/auth/callback`; debe estar en «URI de redireccionamiento autorizados» del cliente |
 | `PUBLIC_API_URL` | URL pública del API, `https://api.app-sprint.com` (valor por defecto del compose). Emisor OAuth del conector MCP de Claude; el servidor MCP queda en `/mcp` |
 | `SESSION_SECRET` | **Obligatoria.** Firma de las cookies, 48+ caracteres aleatorios (`openssl rand -base64 48`). Al cambiarla se cierran todas las sesiones |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Claves de las notificaciones push. Generar **una sola vez** con `npx web-push generate-vapid-keys` (cambiarlas invalida las suscripciones de todos los dispositivos). Vacías = app sin push |
+| `VAPID_SUBJECT` | Contacto para los servicios de push, `mailto:…` (por defecto `mailto:soporte@app-sprint.com`) |
+| `TASK_ALERTS_ENABLED` | Opcional. `false` desactiva la revisión de recordatorios en esa instancia |
 | `POSTGRES_PASSWORD` | Contraseña del servicio `postgres` (por defecto `dotask`). **Solo se aplica al crear el volumen**: en una base existente cámbiala con `ALTER USER` antes de tocar la variable |
 
 ### Build del frontend (`web`)
@@ -147,6 +150,7 @@ Los usuarios creados con WorkOS se conservan: en su primer login con Google se v
 3. Google Cloud: cliente OAuth con la URI de redirección de producción y pantalla de consentimiento publicada.
 4. **Preview Compose** en Dokploy: revisar fusión de redes y labels con el `docker-compose.yml` del repo.
 5. Tras el primer deploy con DB vacía, confirmar en logs del `api` que **`migrate deploy`** aplicó la migración inicial.
+6. Notificaciones push: `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` definidas; en la app, barra lateral → «Alertas en este dispositivo» → activar y «Enviar notificación de prueba». En iPhone, primero Compartir → «Agregar a inicio» y abrir DoTask desde ese ícono.
 
 ---
 

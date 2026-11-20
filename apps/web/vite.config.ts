@@ -10,6 +10,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Notificaciones push (recordatorios y tareas vencidas): ver public/push-sw.js.
+      workbox: {
+        importScripts: ['/push-sw.js'],
+        navigateFallbackDenylist: [/^\/api\//],
+      },
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'DoTask',

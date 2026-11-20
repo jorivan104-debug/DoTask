@@ -27,6 +27,13 @@ DoTask/
 └── README.md
 ```
 
+## Funcionalidades
+
+- **Barra lateral estilo Microsoft To Do**: listas inteligentes con contadores (Mi día, Importante, Planeado, Asignado a mí, Tareas), proyectos plegables con sus listas, búsqueda, creación rápida de proyectos y listas, y panel deslizable en el celular.
+- **Mi día**: lista personal que se reinicia cada día, con panel de **Sugerencias** (pendientes de días anteriores, vencidas, para hoy, próximos 7 días, importantes).
+- **Notificaciones push** en celular y computador (Web Push): recordatorios y avisos de tareas vencidas. Requiere `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` en el API (ver [docs/DEPLOY-DOKPLOY.md](docs/DEPLOY-DOKPLOY.md)).
+- **Conector MCP** para que Claude lea y cree tareas.
+
 ## Desarrollo local
 
 ### Requisitos
