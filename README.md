@@ -82,6 +82,14 @@ Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle
 - Cada ruta comprueba la membresía del espacio y la cadena proyecto → hito → lista → tarea.
 - `helmet`, límite de 120 peticiones/min por cliente y 5/min en `invitations/accept` y `dev-login`.
 
+## Identidad visual
+
+- **Logo**: `branding/logo.svg` (casilla azul, chulito blanco y destello amarillo) y `branding/logo-simple.svg` (sin destello, para 16–24 px). Variantes para Android/iOS/PWA en la misma carpeta. En React: `components/brand/BrandMark.tsx` (cambia sola a la versión simple en tamaños pequeños).
+- **Colores**: variables del tema en `apps/web/src/index.css` con nombres por función: `brand`, `spark` (amarillo), `coral`, `canvas`, `surface`, `ink`, `muted`, `line`, y los estados `success`, `warning`, `danger`. Usa `bg-brand`, `text-ink`… en lugar de colores de Tailwind sueltos.
+- **Estados de tarea**: `components/tasks/taskState.ts` (pendiente, en progreso, completada, por vencer —48 h—, vencida), siempre con texto o forma además del color.
+- **Íconos**: `components/icons.tsx` (Lucide, mismo grosor). Mis tareas = lista con casillas, Proyectos = carpeta, Fechas = calendario, Recordatorios = campana.
+- **Celebraciones**: ráfaga de destellos al completar, aviso al completar la primera tarea o terminar una lista. Respetan `prefers-reduced-motion`.
+
 ## Conector de Claude (MCP)
 
 DoTask expone un servidor MCP remoto en `https://api.app-sprint.com/mcp` para añadirlo en Claude como conector personalizado.

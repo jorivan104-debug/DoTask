@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import BrandMark from '../components/brand/BrandMark';
 
 /**
  * Último paso del login de la app de escritorio: el API redirige aquí tras el
@@ -17,29 +18,30 @@ export default function AppOpenPage() {
   }, [deepLink]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
-      <div className="w-full max-w-sm space-y-5 rounded-2xl bg-white p-8 text-center shadow">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-6">
+      <div className="card w-full max-w-sm animate-rise-in space-y-5 p-8 text-center">
+        <BrandMark size={56} animated className="mx-auto" />
         {deepLink ? (
           <>
-            <h1 className="text-2xl font-bold text-gray-900">Volviendo a DoTask</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold text-ink">Volviendo a DoTask</h1>
+            <p className="text-sm text-muted">
               Si tu navegador pregunta, permite abrir <strong>DoTask</strong>. Después puedes
               cerrar esta pestaña.
             </p>
             <a
               href={deepLink}
-              className="inline-flex rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+              className="btn-primary"
             >
               Abrir DoTask
             </a>
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-bold text-gray-900">Enlace no válido</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold text-ink">Enlace no válido</h1>
+            <p className="text-sm text-muted">
               Vuelve a la aplicación de escritorio y pulsa «Iniciar sesión» otra vez.
             </p>
-            <Link to="/" className="text-sm font-medium text-blue-700 hover:underline">
+            <Link to="/" className="text-sm font-medium text-brand hover:underline">
               Ir al inicio
             </Link>
           </>

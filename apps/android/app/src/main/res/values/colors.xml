@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="status_bar">#2563EB</color>
-    <color name="navigation_bar">#FFFFFF</color>
+    <!-- Paleta de la guía de identidad: azul de marca y fondo general. -->
+    <color name="status_bar">#2457E6</color>
+    <color name="navigation_bar">#F6F8FC</color>
+    <color name="ic_launcher_background">#2457E6</color>
 </resources>

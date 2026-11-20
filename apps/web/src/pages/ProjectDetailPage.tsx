@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useCallback, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   useProject,
   useUpdateProject,
@@ -13,6 +13,12 @@ import {
   type MilestoneDto,
 } from '../hooks/useWorkspaceResources';
 import { playSound } from '../lib/playSound';
+import { workspaceRootPath } from '../lib/workspacePaths';
+import BackLink from '../components/navigation/BackLink';
+import MilestoneCard from '../components/projects/MilestoneCard';
+import Celebration from '../components/feedback/Celebration';
+import EmptyState from '../components/feedback/EmptyState';
+import { AddIcon, DeleteIcon, MilestoneIcon } from '../components/icons';
 
 export default function ProjectDetailPage() {
   const { workspaceId, projectId } = useParams<{
@@ -34,7 +40,8 @@ export default function ProjectDetailPage() {
   const [newMs, setNewMs] = useState('');
   const [linkLabel, setLinkLabel] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState<string | null>(null);
+  const closeCelebration = useCallback(() => setCelebrate(null), []);
 
   const project = projectQ.data;
   const milestones = milestonesQ.data ?? [];
@@ -61,18 +68,12 @@ export default function ProjectDetailPage() {
     const wasCompleted = !!ms.achievedAt;
     await updateMs.mutateAsync({
       milestoneId: ms.id,
-      data: {
-        achievedAt: wasCompleted ? null : new Date().toISOString(),
-      },
+      data: { achievedAt: wasCompleted ? null : new Date().toISOString() },
     });
     if (!wasCompleted) {
       playSound('/sound/project.wav');
+      setCelebrate(ms.name);
     }
-  };
-
-  const handleDeleteMilestone = async (msId: string) => {
-    await deleteMs.mutateAsync(msId);
-    setDeleteConfirm(null);
   };
 
   const handleAddLink = async (e: React.FormEvent) => {
@@ -90,7 +91,7 @@ export default function ProjectDetailPage() {
   if (projectQ.isPending) {
     return (
       <div className="flex items-center justify-center p-12">
-        <span className="text-sm text-gray-500">Cargando proyecto…</span>
+        <span className="text-sm text-muted">Cargando proyecto…</span>
       </div>
     );
   }
@@ -98,232 +99,152 @@ export default function ProjectDetailPage() {
   if (projectQ.isError || !project) {
     return (
       <div className="p-8">
-        <p className="text-sm text-red-600">No se pudo cargar el proyecto.</p>
+        <p className="text-sm text-danger">No se pudo cargar el proyecto.</p>
       </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-8">
-      <Link
-        to="/"
-        className="text-sm font-medium text-blue-600 hover:text-blue-800"
-      >
-        ← Todos los espacios
-      </Link>
+    <main className="mx-auto max-w-3xl px-4 pb-16 pt-4 sm:px-6 sm:pt-8">
+      <BackLink to={workspaceRootPath(workspaceId)} label="Proyectos" mobileOnly />
 
-      <h2 className="mt-3 text-xl font-bold text-gray-900">{project.name}</h2>
+      <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">{project.name}</h1>
+      {project.description && <p className="mt-1 text-muted">{project.description}</p>}
 
-      {/* --- Descripción --- */}
-      <section className="mt-6">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Descripción
-        </h3>
-        <textarea
-          value={descValue}
-          onChange={(e) => setDesc(e.target.value)}
-          onBlur={handleSaveDesc}
-          rows={3}
-          placeholder="Añade una descripción al proyecto…"
-          className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        {updateProject.isPending && (
-          <p className="mt-1 text-xs text-gray-500">Guardando…</p>
+      {/* --- Hitos y listas: lo que se usa a diario --- */}
+      <section className="mt-6" aria-labelledby="hitos">
+        <div className="mb-3 flex items-center gap-2">
+          <MilestoneIcon size={18} className="text-brand" />
+          <h2 id="hitos" className="text-sm font-bold uppercase tracking-wide text-muted">
+            Hitos y listas
+          </h2>
+        </div>
+        {milestonesQ.isPending && <p className="text-sm text-muted">Cargando hitos…</p>}
+        {!milestonesQ.isPending && milestones.length === 0 && (
+          <div className="card mb-3">
+            <EmptyState
+              title="Sin hitos todavía"
+              description="Un hito agrupa listas de tareas: por ejemplo «Backlog» o «Lanzamiento»."
+            />
+          </div>
         )}
-      </section>
-
-      {/* --- Anexos (enlaces) --- */}
-      <section className="mt-8">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Anexos (enlaces)
-        </h3>
-        {links.length === 0 && !linksQ.isPending && (
-          <p className="mb-3 text-sm text-gray-500">Sin enlaces aún.</p>
-        )}
-        <ul className="mb-3 space-y-1">
-          {links.map((lk) => (
-            <li
-              key={lk.id}
-              className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-            >
-              <a
-                href={lk.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="truncate font-medium text-blue-600 hover:underline"
-              >
-                {lk.label}
-              </a>
-              <button
-                type="button"
-                onClick={() => deleteLink.mutate(lk.id)}
-                className="ml-2 shrink-0 text-xs text-red-500 hover:text-red-700"
-              >
-                Quitar
-              </button>
-            </li>
+        <ul className="mb-3 space-y-3">
+          {milestones.map((ms) => (
+            <MilestoneCard
+              key={ms.id}
+              workspaceId={workspaceId}
+              projectId={projectId}
+              milestone={ms}
+              busy={updateMs.isPending}
+              onToggle={handleToggleComplete}
+              onDelete={(id) => deleteMs.mutate(id)}
+            />
           ))}
         </ul>
-        <form onSubmit={handleAddLink} className="flex flex-wrap gap-2">
-          <input
-            type="text"
-            value={linkLabel}
-            onChange={(e) => setLinkLabel(e.target.value)}
-            placeholder="Nombre del enlace"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <input
-            type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://…"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={
-              createLink.isPending || !linkLabel.trim() || !linkUrl.trim()
-            }
-            className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {createLink.isPending ? '…' : 'Añadir enlace'}
-          </button>
-        </form>
-        {createLink.isError && (
-          <p className="mt-1 text-xs text-red-600">
-            {(createLink.error as Error).message}
-          </p>
-        )}
-      </section>
-
-      {/* --- Hitos --- */}
-      <section className="mt-8">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Hitos
-        </h3>
-        {milestonesQ.isPending && (
-          <p className="text-sm text-gray-500">Cargando hitos…</p>
-        )}
-        <ul className="mb-3 space-y-2">
-          {milestones.map((ms) => {
-            const done = !!ms.achievedAt;
-            return (
-              <li
-                key={ms.id}
-                className={`rounded-lg border bg-white p-3 shadow-sm transition ${
-                  done
-                    ? 'border-green-200 bg-green-50/50'
-                    : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleComplete(ms)}
-                    disabled={updateMs.isPending}
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
-                      done
-                        ? 'border-green-500 bg-green-500 text-white'
-                        : 'border-gray-300 hover:border-blue-400'
-                    }`}
-                    aria-label={done ? 'Reabrir hito' : 'Completar hito'}
-                  >
-                    {done && (
-                      <svg
-                        viewBox="0 0 12 12"
-                        className="h-3 w-3"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M2 6l3 3 5-5" />
-                      </svg>
-                    )}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`font-medium ${
-                        done
-                          ? 'text-green-800 line-through'
-                          : 'text-gray-900'
-                      }`}
-                    >
-                      {ms.name}
-                    </p>
-                    {done && ms.achievedAt && (
-                      <p className="mt-0.5 text-xs text-green-700">
-                        Completado{' '}
-                        {new Date(ms.achievedAt).toLocaleDateString('es', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Link
-                      to={`/workspaces/${workspaceId}/p/${projectId}`}
-                      className="text-xs text-gray-500 hover:text-blue-600"
-                      title="Ver tareas de este hito"
-                    >
-                      Tareas
-                    </Link>
-                    {deleteConfirm === ms.id ? (
-                      <span className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMilestone(ms.id)}
-                          disabled={deleteMs.isPending}
-                          className="text-xs font-semibold text-red-600 hover:text-red-800"
-                        >
-                          Confirmar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteConfirm(null)}
-                          className="text-xs text-gray-500"
-                        >
-                          Cancelar
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirm(ms.id)}
-                        className="text-xs text-red-500 hover:text-red-700"
-                      >
-                        Eliminar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <form onSubmit={handleAddMilestone} className="flex gap-2">
+        <form onSubmit={handleAddMilestone} className="flex flex-col gap-2 sm:flex-row">
           <input
             type="text"
             value={newMs}
             onChange={(e) => setNewMs(e.target.value)}
-            placeholder="Nuevo hito…"
-            className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Nombre del nuevo hito"
+            aria-label="Nombre del nuevo hito"
+            className="input"
           />
-          <button
-            type="submit"
-            disabled={createMs.isPending || !newMs.trim()}
-            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            {createMs.isPending ? 'Añadiendo…' : 'Añadir hito'}
+          <button type="submit" disabled={createMs.isPending || !newMs.trim()} className="btn-primary sm:shrink-0">
+            <AddIcon size={18} strokeWidth={2.5} />
+            {createMs.isPending ? 'Añadiendo…' : 'Nuevo hito'}
           </button>
         </form>
-        {createMs.isError && (
-          <p className="mt-1 text-xs text-red-600">
-            {(createMs.error as Error).message}
-          </p>
-        )}
+        {createMs.isError && <p className="mt-1 text-xs text-danger">{(createMs.error as Error).message}</p>}
       </section>
+
+      {/* --- Detalles: descripción y enlaces --- */}
+      <section className="mt-10" aria-labelledby="detalles">
+        <h2 id="detalles" className="mb-3 text-sm font-bold uppercase tracking-wide text-muted">
+          Detalles del proyecto
+        </h2>
+        <div className="card space-y-6 p-4">
+          <div>
+            <label htmlFor="descripcion" className="mb-1.5 block text-sm font-semibold text-ink">
+              Descripción
+            </label>
+            <textarea
+              id="descripcion"
+              value={descValue}
+              onChange={(e) => setDesc(e.target.value)}
+              onBlur={handleSaveDesc}
+              rows={3}
+              placeholder="¿De qué trata este proyecto?"
+              className="input resize-y"
+            />
+            {updateProject.isPending && <p className="mt-1 text-xs text-muted">Guardando…</p>}
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-sm font-semibold text-ink">Enlaces</p>
+            {links.length === 0 && !linksQ.isPending && (
+              <p className="mb-3 text-sm text-muted">Sin enlaces aún.</p>
+            )}
+            {links.length > 0 && (
+              <ul className="mb-3 divide-y divide-line rounded-xl border border-line">
+                {links.map((lk) => (
+                  <li key={lk.id} className="flex min-h-12 items-center gap-2 px-3">
+                    <a
+                      href={lk.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 flex-1 truncate py-2 text-sm font-semibold text-brand hover:underline"
+                    >
+                      {lk.label}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => deleteLink.mutate(lk.id)}
+                      aria-label={`Quitar enlace ${lk.label}`}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-danger-soft hover:text-danger"
+                    >
+                      <DeleteIcon size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form onSubmit={handleAddLink} className="grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+              <input
+                type="text"
+                value={linkLabel}
+                onChange={(e) => setLinkLabel(e.target.value)}
+                placeholder="Nombre del enlace"
+                aria-label="Nombre del enlace"
+                className="input"
+              />
+              <input
+                type="url"
+                inputMode="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://…"
+                aria-label="Dirección del enlace"
+                className="input"
+              />
+              <button
+                type="submit"
+                disabled={createLink.isPending || !linkLabel.trim() || !linkUrl.trim()}
+                className="btn-secondary"
+              >
+                {createLink.isPending ? 'Añadiendo…' : 'Añadir enlace'}
+              </button>
+            </form>
+            {createLink.isError && (
+              <p className="mt-1 text-xs text-danger">{(createLink.error as Error).message}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {celebrate && (
+        <Celebration title="¡Hito cumplido!" message={`«${celebrate}» está listo.`} onClose={closeCelebration} />
+      )}
     </main>
   );
 }

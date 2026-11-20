@@ -35,7 +35,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function FullScreenLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <span className="text-gray-400">Cargando...</span>
+      <span className="text-muted">Cargando...</span>
     </div>
   );
 }
@@ -75,7 +75,7 @@ function WorkspaceGate() {
   if (waitingForWorkspaces) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <span className="text-gray-400">Cargando espacios...</span>
+        <span className="text-muted">Cargando espacios...</span>
       </div>
     );
   }

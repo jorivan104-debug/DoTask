@@ -10,14 +10,14 @@ import {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-10">
-      <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-      <div className="mt-3 space-y-3 leading-7 text-gray-700">{children}</div>
+      <h2 className="text-xl font-semibold text-ink">{title}</h2>
+      <div className="mt-3 space-y-3 leading-7 text-muted">{children}</div>
     </section>
   );
 }
 
 const mail = (
-  <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`} className="font-medium text-blue-700 hover:underline">
+  <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`} className="font-medium text-brand hover:underline">
     {PRIVACY_CONTACT_EMAIL}
   </a>
 );
@@ -31,10 +31,10 @@ export default function PrivacyPage() {
   return (
     <PublicLayout title={`Política de privacidad — ${APP_NAME}`}>
       <article className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Política de privacidad</h1>
-        <p className="mt-2 text-sm text-gray-500">Última actualización: {PRIVACY_LAST_UPDATED}</p>
+        <h1 className="text-3xl font-bold tracking-tight text-ink">Política de privacidad</h1>
+        <p className="mt-2 text-sm text-muted">Última actualización: {PRIVACY_LAST_UPDATED}</p>
 
-        <p className="mt-8 leading-7 text-gray-700">
+        <p className="mt-8 leading-7 text-muted">
           Esta política explica qué datos recoge {APP_NAME} ({APP_URL}), para qué los usa, con
           quién los comparte y qué derechos tienes sobre ellos. El responsable del tratamiento es{' '}
           {PRIVACY_RESPONSIBLE}. Para cualquier consulta escríbenos a {mail}.
@@ -45,9 +45,9 @@ export default function PrivacyPage() {
             <strong>Datos de tu cuenta de Google.</strong> Cuando inicias sesión con Google
             recibimos tu nombre, tu dirección de correo electrónico (verificada por Google) y un
             identificador único de tu cuenta. Solo pedimos los permisos básicos{' '}
-            <code className="rounded bg-gray-100 px-1 text-sm">openid</code>,{' '}
-            <code className="rounded bg-gray-100 px-1 text-sm">email</code> y{' '}
-            <code className="rounded bg-gray-100 px-1 text-sm">profile</code>. No accedemos a tu
+            <code className="rounded bg-canvas px-1 text-sm">openid</code>,{' '}
+            <code className="rounded bg-canvas px-1 text-sm">email</code> y{' '}
+            <code className="rounded bg-canvas px-1 text-sm">profile</code>. No accedemos a tu
             Gmail, tu Drive, tus contactos ni a ningún otro servicio de Google, y no guardamos tu
             contraseña ni los tokens de acceso de Google.
           </p>
@@ -88,7 +88,7 @@ export default function PrivacyPage() {
               href="https://developers.google.com/terms/api-services-user-data-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-blue-700 hover:underline"
+              className="font-medium text-brand hover:underline"
             >
               Política de datos de usuario de los servicios de API de Google
             </a>
@@ -104,11 +104,11 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc space-y-2 pl-6">
             <li>
-              <code className="rounded bg-gray-100 px-1 text-sm">dotask_session</code>: mantiene tu
+              <code className="rounded bg-canvas px-1 text-sm">dotask_session</code>: mantiene tu
               sesión iniciada durante 7 días. Va firmada para que nadie pueda falsificarla.
             </li>
             <li>
-              <code className="rounded bg-gray-100 px-1 text-sm">dotask_oauth</code>: protege el
+              <code className="rounded bg-canvas px-1 text-sm">dotask_oauth</code>: protege el
               proceso de inicio de sesión con Google y se borra en un máximo de 10 minutos.
             </li>
           </ul>
@@ -131,7 +131,7 @@ export default function PrivacyPage() {
                 href="https://policies.google.com/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-blue-700 hover:underline"
+                className="font-medium text-brand hover:underline"
               >
                 política de privacidad
               </a>
@@ -149,7 +149,7 @@ export default function PrivacyPage() {
                 href="https://docs.github.com/es/site-policy/privacy-policies/github-general-privacy-statement"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-blue-700 hover:underline"
+                className="font-medium text-brand hover:underline"
               >
                 declaración de privacidad
               </a>
@@ -197,7 +197,7 @@ export default function PrivacyPage() {
               href="https://myaccount.google.com/connections"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-blue-700 hover:underline"
+              className="font-medium text-brand hover:underline"
             >
               myaccount.google.com/connections
             </a>

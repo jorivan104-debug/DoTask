@@ -41,6 +41,8 @@ export interface TaskDto {
   status: string;
   priority: string;
   sortOrder: number;
+  dueAt?: string | null;
+  completedAt?: string | null;
   subtasks?: TaskDto[];
 }
 
@@ -343,6 +345,56 @@ export function useCreateTask(
         { method: 'POST', body: JSON.stringify({ title }) },
       ),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [...key] });
+    },
+  });
+}
+
+/**
+ * Completar / reabrir una tarea con actualización optimista: la casilla responde al
+ * instante y, si el servidor falla, vuelve a su estado anterior.
+ */
+export function useToggleTask(
+  workspaceId: string | undefined,
+  projectId: string | undefined,
+  milestoneId: string | undefined,
+  listId: string | undefined,
+) {
+  const qc = useQueryClient();
+  const key = [
+    'workspace',
+    workspaceId,
+    'project',
+    projectId,
+    'milestone',
+    milestoneId,
+    'list',
+    listId,
+    'tasks',
+  ] as const;
+
+  return useMutation({
+    mutationFn: ({ taskId, completed }: { taskId: string; completed: boolean }) =>
+      apiFetch<TaskDto>(
+        `/v1/workspaces/${workspaceId}/projects/${projectId}/milestones/${milestoneId}/lists/${listId}/tasks/${taskId}`,
+        { method: 'PATCH', body: JSON.stringify({ status: completed ? 'completed' : 'pending' }) },
+      ),
+    onMutate: async ({ taskId, completed }) => {
+      await qc.cancelQueries({ queryKey: [...key] });
+      const previous = qc.getQueryData<TaskDto[]>([...key]);
+      qc.setQueryData<TaskDto[]>([...key], (tasks) =>
+        tasks?.map((t) =>
+          t.id === taskId
+            ? { ...t, status: completed ? 'completed' : 'pending', completedAt: completed ? new Date().toISOString() : null }
+            : t,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous) qc.setQueryData([...key], context.previous);
+    },
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: [...key] });
     },
   });

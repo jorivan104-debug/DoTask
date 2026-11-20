@@ -2,8 +2,16 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProjects } from '../hooks/useWorkspaceResources';
 import { projectDetailPath } from '../lib/workspacePaths';
+import { useIsDesktop } from '../hooks/useMediaQuery';
+import ProjectsOverviewPage from './ProjectsOverviewPage';
 
+/** Celular: lista de proyectos. Escritorio: abre el primer proyecto (la columna lateral muestra el resto). */
 export default function WorkspaceIndexRedirect() {
+  const isDesktop = useIsDesktop();
+  return isDesktop ? <OpenFirstProject /> : <ProjectsOverviewPage />;
+}
+
+function OpenFirstProject() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
   const projectsQ = useProjects(workspaceId);
@@ -19,7 +27,7 @@ export default function WorkspaceIndexRedirect() {
   if (projectsQ.isError) {
     return (
       <div className="p-8">
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-danger">
           No se pudo cargar la estructura del espacio.
         </p>
       </div>
@@ -29,14 +37,14 @@ export default function WorkspaceIndexRedirect() {
   if (!projectsQ.isPending && !firstP) {
     return (
       <div className="p-8">
-        <p className="text-sm text-amber-800">Este espacio no tiene proyectos.</p>
+        <p className="text-sm text-warning">Este espacio no tiene proyectos.</p>
       </div>
     );
   }
 
   return (
     <div className="flex items-center justify-center p-12">
-      <span className="text-sm text-gray-500">Abriendo proyecto…</span>
+      <span className="text-sm text-muted">Abriendo proyecto…</span>
     </div>
   );
 }
