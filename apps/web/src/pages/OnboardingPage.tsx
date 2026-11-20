@@ -29,15 +29,15 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <header className="border-b bg-white px-6 py-4">
+    <div className="flex min-h-screen flex-col bg-canvas">
+      <header className="border-b bg-surface px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">DoTask</h1>
+          <h1 className="text-xl font-bold text-ink">DoTask</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user?.displayName}</span>
+            <span className="text-sm text-muted">{user?.displayName}</span>
             <button
               onClick={logout}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-muted hover:text-ink"
             >
               Cerrar sesión
             </button>
@@ -48,22 +48,22 @@ export default function OnboardingPage() {
       <main className="flex flex-1 items-center justify-center px-4">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-ink">
               Bienvenido a DoTask
             </h2>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-muted">
               Para comenzar, crea un espacio de trabajo o únete a uno existente.
             </p>
           </div>
 
-          <div className="rounded-xl bg-white shadow-lg">
+          <div className="rounded-xl bg-surface shadow-lg">
             <div className="flex border-b">
               <button
                 onClick={() => setActiveTab('create')}
                 className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                   activeTab === 'create'
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'border-b-2 border-brand text-brand'
+                    : 'text-muted hover:text-ink'
                 }`}
               >
                 Crear espacio
@@ -72,8 +72,8 @@ export default function OnboardingPage() {
                 onClick={() => setActiveTab('join')}
                 className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                   activeTab === 'join'
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'border-b-2 border-brand text-brand'
+                    : 'text-muted hover:text-ink'
                 }`}
               >
                 Unirme con código
@@ -86,7 +86,7 @@ export default function OnboardingPage() {
                   <div>
                     <label
                       htmlFor="ws-name"
-                      className="block text-sm font-medium text-gray-700"
+                      className="block text-sm font-medium text-muted"
                     >
                       Nombre del espacio de trabajo
                     </label>
@@ -96,19 +96,19 @@ export default function OnboardingPage() {
                       value={workspaceName}
                       onChange={(e) => setWorkspaceName(e.target.value)}
                       placeholder="Mi equipo"
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                       autoFocus
                     />
                   </div>
                   {createWs.isError && (
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-danger">
                       {(createWs.error as Error).message}
                     </p>
                   )}
                   <button
                     type="submit"
                     disabled={createWs.isPending || !workspaceName.trim()}
-                    className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                    className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-strong disabled:opacity-50"
                   >
                     {createWs.isPending ? 'Creando...' : 'Crear espacio de trabajo'}
                   </button>
@@ -118,7 +118,7 @@ export default function OnboardingPage() {
                   <div>
                     <label
                       htmlFor="invite-code"
-                      className="block text-sm font-medium text-gray-700"
+                      className="block text-sm font-medium text-muted"
                     >
                       Código de invitación
                     </label>
@@ -128,19 +128,19 @@ export default function OnboardingPage() {
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value)}
                       placeholder="Pega el código aquí"
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="mt-1 w-full rounded-lg border border-line-strong px-3 py-2 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                       autoFocus
                     />
                   </div>
                   {acceptInv.isError && (
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-danger">
                       {(acceptInv.error as Error).message}
                     </p>
                   )}
                   <button
                     type="submit"
                     disabled={acceptInv.isPending || !inviteCode.trim()}
-                    className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                    className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-strong disabled:opacity-50"
                   >
                     {acceptInv.isPending ? 'Uniéndome...' : 'Unirme al espacio'}
                   </button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { apiFetch, ApiError } from '../lib/api';
+import BrandMark from '../components/brand/BrandMark';
 
 const LOGIN_ERRORS: Record<string, string> = {
   cancelado: 'Cancelaste el inicio de sesión con Google.',
@@ -45,22 +46,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm space-y-6 rounded-xl bg-white p-8 shadow-lg">
+    <div className="flex min-h-screen items-center justify-center bg-canvas">
+      <div className="card w-full max-w-sm animate-rise-in space-y-6 p-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">DoTask</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <BrandMark size={72} animated className="mx-auto mb-4 drop-shadow-[0_8px_20px_rgb(36_87_230/0.25)]" />
+          <h1 className="text-3xl font-extrabold tracking-tight text-ink">DoTask</h1>
+          <p className="mt-2 text-sm text-muted">
             Gestión de tareas en equipo
           </p>
         </div>
         {loginError && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">
             {loginError}
           </p>
         )}
         <button
           onClick={login}
-          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          className="btn-primary w-full py-3"
         >
           Continuar con Google
         </button>
@@ -68,42 +70,42 @@ export default function LoginPage() {
         {devLoginEnabled && (
           <form
             onSubmit={submitDevLogin}
-            className="space-y-3 border-t border-amber-200 pt-6"
+            className="space-y-3 border-t border-warning/20 pt-6"
           >
-            <p className="text-center text-xs font-medium uppercase tracking-wide text-amber-800">
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-warning">
               Solo desarrollo local
             </p>
-            <label className="block text-sm text-gray-700">
+            <label className="block text-sm text-muted">
               Contraseña local
               <input
                 type="password"
                 autoComplete="off"
                 value={devPassword}
                 onChange={(e) => setDevPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                 placeholder="DOTASK_DEV_LOGIN_PASSWORD"
               />
             </label>
             {devError && (
-              <p className="text-sm text-red-600" role="alert">
+              <p className="text-sm text-danger" role="alert">
                 {devError}
               </p>
             )}
             <button
               type="submit"
               disabled={devBusy || !devPassword.trim()}
-              className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-50"
+              className="w-full rounded-lg border border-warning/30 bg-warning-soft px-4 py-2.5 text-sm font-semibold text-warning hover:bg-warning-soft/70 disabled:opacity-50"
             >
               {devBusy ? 'Entrando…' : 'Entrar sin Google'}
             </button>
           </form>
         )}
 
-        <nav className="flex justify-center gap-4 border-t border-gray-100 pt-4 text-xs text-gray-500">
-          <Link to="/" className="hover:text-gray-900">
+        <nav className="flex justify-center gap-4 border-t border-line pt-4 text-xs text-muted">
+          <Link to="/" className="hover:text-ink">
             Inicio
           </Link>
-          <Link to="/privacidad" className="hover:text-gray-900">
+          <Link to="/privacidad" className="hover:text-ink">
             Política de privacidad
           </Link>
         </nav>

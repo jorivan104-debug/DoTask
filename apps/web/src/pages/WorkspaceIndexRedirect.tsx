@@ -19,7 +19,7 @@ export default function WorkspaceIndexRedirect() {
   if (projectsQ.isError) {
     return (
       <div className="p-8">
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-danger">
           No se pudo cargar la estructura del espacio.
         </p>
       </div>
@@ -29,14 +29,14 @@ export default function WorkspaceIndexRedirect() {
   if (!projectsQ.isPending && !firstP) {
     return (
       <div className="p-8">
-        <p className="text-sm text-amber-800">Este espacio no tiene proyectos.</p>
+        <p className="text-sm text-warning">Este espacio no tiene proyectos.</p>
       </div>
     );
   }
 
   return (
     <div className="flex items-center justify-center p-12">
-      <span className="text-sm text-gray-500">Abriendo proyecto…</span>
+      <span className="text-sm text-muted">Abriendo proyecto…</span>
     </div>
   );
 }

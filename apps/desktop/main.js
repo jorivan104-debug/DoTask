@@ -70,7 +70,7 @@ function createWindow() {
     title: 'DoTask',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F6F8FC',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

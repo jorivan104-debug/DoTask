@@ -1,1 +1,123 @@
 @import "tailwindcss";
+
+/*
+ * Tema de DoTask — guía de identidad visual.
+ * Los colores se nombran por su función: úsalos como `bg-brand`, `text-ink`, `border-line`…
+ * Regla: neutros en la mayor parte de la pantalla, azul para guiar las acciones y un
+ * solo acento expresivo (amarillo o coral) a la vez en las vistas de trabajo.
+ */
+@theme {
+  /* Marca y acción principal */
+  --color-brand: #2457e6;
+  --color-brand-strong: #1c46c2;
+  --color-brand-soft: #e9effd;
+
+  /* Acentos expresivos: destello del logo, vistas vacías y celebraciones.
+     El coral es solo gráfico: no lleva texto encima (contraste insuficiente). */
+  --color-spark: #f9c84a;
+  --color-spark-soft: #fef6dd;
+  --color-coral: #f25b5b;
+
+  /* Neutros */
+  --color-canvas: #f6f8fc;
+  --color-surface: #ffffff;
+  --color-ink: #17233b;
+  --color-muted: #53627a;
+  --color-line: #dfe5f0;
+  --color-line-strong: #b9c3d4;
+
+  /* Estados de tarea (siempre acompañados de texto o forma) */
+  --color-success: #16734a;
+  --color-success-soft: #e6f4ec;
+  --color-warning: #8a5200;
+  --color-warning-soft: #fdf1dc;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+
+  --radius-card: 1rem;
+  --shadow-card: 0 1px 2px rgb(23 35 59 / 0.04), 0 4px 16px rgb(23 35 59 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(23 35 59 / 0.06), 0 12px 32px rgb(36 87 230 / 0.14);
+
+  --animate-check-pop: check-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-spark-burst: spark-burst 700ms ease-out forwards;
+  --animate-twinkle: twinkle 2.8s ease-in-out infinite;
+  --animate-rise-in: rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-strike: strike 260ms ease-out forwards;
+
+  @keyframes check-pop {
+    0% { transform: scale(0.6); }
+    55% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  @keyframes spark-burst {
+    0% { opacity: 0; transform: translate(0, 0) scale(0.2) rotate(0deg); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--spark-x, 0), var(--spark-y, -18px)) scale(1) rotate(45deg); }
+  }
+  @keyframes twinkle {
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    50% { transform: scale(0.82) rotate(12deg); opacity: 0.85; }
+  }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes strike {
+    from { background-size: 0% 2px; }
+    to { background-size: 100% 2px; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-canvas text-ink;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-brand-soft);
+    color: var(--color-ink);
+  }
+}
+
+@layer components {
+  /* Botón principal: el azul de marca guía la acción. */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_2px_0_0_var(--color-brand-strong)] transition duration-150 hover:-translate-y-px hover:bg-brand-strong hover:shadow-[0_3px_0_0_#163a9f] active:translate-y-px active:shadow-none disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-line-strong hover:bg-canvas disabled:opacity-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15;
+  }
+  .card {
+    @apply rounded-[var(--radius-card)] border border-line/70 bg-surface shadow-[var(--shadow-card)];
+  }
+  /* Tachado animado de una tarea completada. */
+  .strike-through {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 55%;
+    background-size: 100% 2px;
+  }
+  .strike-through-animate {
+    @apply animate-strike;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

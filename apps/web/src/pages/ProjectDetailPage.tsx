@@ -90,7 +90,7 @@ export default function ProjectDetailPage() {
   if (projectQ.isPending) {
     return (
       <div className="flex items-center justify-center p-12">
-        <span className="text-sm text-gray-500">Cargando proyecto…</span>
+        <span className="text-sm text-muted">Cargando proyecto…</span>
       </div>
     );
   }
@@ -98,7 +98,7 @@ export default function ProjectDetailPage() {
   if (projectQ.isError || !project) {
     return (
       <div className="p-8">
-        <p className="text-sm text-red-600">No se pudo cargar el proyecto.</p>
+        <p className="text-sm text-danger">No se pudo cargar el proyecto.</p>
       </div>
     );
   }
@@ -107,16 +107,16 @@ export default function ProjectDetailPage() {
     <main className="mx-auto max-w-3xl px-6 py-8">
       <Link
         to="/"
-        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+        className="text-sm font-medium text-brand hover:text-brand-strong"
       >
         ← Todos los espacios
       </Link>
 
-      <h2 className="mt-3 text-xl font-bold text-gray-900">{project.name}</h2>
+      <h2 className="mt-3 text-xl font-bold text-ink">{project.name}</h2>
 
       {/* --- Descripción --- */}
       <section className="mt-6">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
           Descripción
         </h3>
         <textarea
@@ -125,39 +125,39 @@ export default function ProjectDetailPage() {
           onBlur={handleSaveDesc}
           rows={3}
           placeholder="Añade una descripción al proyecto…"
-          className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full resize-y rounded-lg border border-line-strong px-3 py-2 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
         />
         {updateProject.isPending && (
-          <p className="mt-1 text-xs text-gray-500">Guardando…</p>
+          <p className="mt-1 text-xs text-muted">Guardando…</p>
         )}
       </section>
 
       {/* --- Anexos (enlaces) --- */}
       <section className="mt-8">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
           Anexos (enlaces)
         </h3>
         {links.length === 0 && !linksQ.isPending && (
-          <p className="mb-3 text-sm text-gray-500">Sin enlaces aún.</p>
+          <p className="mb-3 text-sm text-muted">Sin enlaces aún.</p>
         )}
         <ul className="mb-3 space-y-1">
           {links.map((lk) => (
             <li
               key={lk.id}
-              className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-2 text-sm"
             >
               <a
                 href={lk.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="truncate font-medium text-blue-600 hover:underline"
+                className="truncate font-medium text-brand hover:underline"
               >
                 {lk.label}
               </a>
               <button
                 type="button"
                 onClick={() => deleteLink.mutate(lk.id)}
-                className="ml-2 shrink-0 text-xs text-red-500 hover:text-red-700"
+                className="ml-2 shrink-0 text-xs text-danger/70 hover:text-danger"
               >
                 Quitar
               </button>
@@ -170,27 +170,27 @@ export default function ProjectDetailPage() {
             value={linkLabel}
             onChange={(e) => setLinkLabel(e.target.value)}
             placeholder="Nombre del enlace"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 flex-1 rounded-md border border-line-strong px-3 py-1.5 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
           />
           <input
             type="url"
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
             placeholder="https://…"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 flex-1 rounded-md border border-line-strong px-3 py-1.5 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
           />
           <button
             type="submit"
             disabled={
               createLink.isPending || !linkLabel.trim() || !linkUrl.trim()
             }
-            className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            className="shrink-0 rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-strong disabled:opacity-50"
           >
             {createLink.isPending ? '…' : 'Añadir enlace'}
           </button>
         </form>
         {createLink.isError && (
-          <p className="mt-1 text-xs text-red-600">
+          <p className="mt-1 text-xs text-danger">
             {(createLink.error as Error).message}
           </p>
         )}
@@ -198,11 +198,11 @@ export default function ProjectDetailPage() {
 
       {/* --- Hitos --- */}
       <section className="mt-8">
-        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
           Hitos
         </h3>
         {milestonesQ.isPending && (
-          <p className="text-sm text-gray-500">Cargando hitos…</p>
+          <p className="text-sm text-muted">Cargando hitos…</p>
         )}
         <ul className="mb-3 space-y-2">
           {milestones.map((ms) => {
@@ -210,10 +210,10 @@ export default function ProjectDetailPage() {
             return (
               <li
                 key={ms.id}
-                className={`rounded-lg border bg-white p-3 shadow-sm transition ${
+                className={`rounded-lg border bg-surface p-3 shadow-sm transition ${
                   done
-                    ? 'border-green-200 bg-green-50/50'
-                    : 'border-gray-200'
+                    ? 'border-success/20 bg-success-soft/50'
+                    : 'border-line'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -223,8 +223,8 @@ export default function ProjectDetailPage() {
                     disabled={updateMs.isPending}
                     className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
                       done
-                        ? 'border-green-500 bg-green-500 text-white'
-                        : 'border-gray-300 hover:border-blue-400'
+                        ? 'animate-check-pop border-brand bg-brand text-white'
+                        : 'border-line-strong hover:border-brand hover:bg-brand-soft'
                     }`}
                     aria-label={done ? 'Reabrir hito' : 'Completar hito'}
                   >
@@ -244,14 +244,14 @@ export default function ProjectDetailPage() {
                     <p
                       className={`font-medium ${
                         done
-                          ? 'text-green-800 line-through'
-                          : 'text-gray-900'
+                          ? 'text-success line-through'
+                          : 'text-ink'
                       }`}
                     >
                       {ms.name}
                     </p>
                     {done && ms.achievedAt && (
-                      <p className="mt-0.5 text-xs text-green-700">
+                      <p className="mt-0.5 text-xs text-success">
                         Completado{' '}
                         {new Date(ms.achievedAt).toLocaleDateString('es', {
                           day: 'numeric',
@@ -264,7 +264,7 @@ export default function ProjectDetailPage() {
                   <div className="flex shrink-0 gap-2">
                     <Link
                       to={`/workspaces/${workspaceId}/p/${projectId}`}
-                      className="text-xs text-gray-500 hover:text-blue-600"
+                      className="text-xs text-muted hover:text-brand"
                       title="Ver tareas de este hito"
                     >
                       Tareas
@@ -275,14 +275,14 @@ export default function ProjectDetailPage() {
                           type="button"
                           onClick={() => handleDeleteMilestone(ms.id)}
                           disabled={deleteMs.isPending}
-                          className="text-xs font-semibold text-red-600 hover:text-red-800"
+                          className="text-xs font-semibold text-danger hover:text-danger"
                         >
                           Confirmar
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteConfirm(null)}
-                          className="text-xs text-gray-500"
+                          className="text-xs text-muted"
                         >
                           Cancelar
                         </button>
@@ -291,7 +291,7 @@ export default function ProjectDetailPage() {
                       <button
                         type="button"
                         onClick={() => setDeleteConfirm(ms.id)}
-                        className="text-xs text-red-500 hover:text-red-700"
+                        className="text-xs text-danger/70 hover:text-danger"
                       >
                         Eliminar
                       </button>
@@ -308,18 +308,18 @@ export default function ProjectDetailPage() {
             value={newMs}
             onChange={(e) => setNewMs(e.target.value)}
             placeholder="Nuevo hito…"
-            className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 flex-1 rounded-lg border border-line-strong px-3 py-2 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
           />
           <button
             type="submit"
             disabled={createMs.isPending || !newMs.trim()}
-            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-strong disabled:opacity-50"
           >
             {createMs.isPending ? 'Añadiendo…' : 'Añadir hito'}
           </button>
         </form>
         {createMs.isError && (
-          <p className="mt-1 text-xs text-red-600">
+          <p className="mt-1 text-xs text-danger">
             {(createMs.error as Error).message}
           </p>
         )}

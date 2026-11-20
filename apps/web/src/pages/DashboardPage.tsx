@@ -7,20 +7,20 @@ export default function DashboardPage() {
   const { data: workspaces, isLoading, isError } = useWorkspaces();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white px-6 py-4">
+    <div className="min-h-screen bg-canvas">
+      <header className="border-b bg-surface px-6 py-4">
         <div className="flex items-center justify-between">
           <Link
             to="/"
-            className="text-xl font-bold text-gray-900 hover:text-gray-700"
+            className="text-xl font-bold text-ink hover:text-muted"
           >
             DoTask
           </Link>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user?.displayName}</span>
+            <span className="text-sm text-muted">{user?.displayName}</span>
             <button
               onClick={logout}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-muted hover:text-ink"
             >
               Cerrar sesión
             </button>
@@ -30,28 +30,28 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-5xl px-6 py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-ink">
               Tus espacios de trabajo
             </h2>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-muted">
               Los nuevos usuarios sin espacio pasan por la pantalla de bienvenida
               para crear uno o unirse con un código de invitación.
             </p>
           </div>
           <Link
             to="/onboarding"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="btn-primary"
           >
             Crear espacio o unirse por código
           </Link>
         </div>
 
         {isLoading && (
-          <p className="text-sm text-gray-500">Cargando espacios...</p>
+          <p className="text-sm text-muted">Cargando espacios...</p>
         )}
 
         {isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-danger">
             No se pudieron cargar los espacios. Comprueba la conexión y la URL
             de la API.
           </p>
@@ -63,11 +63,11 @@ export default function DashboardPage() {
               <li key={ws.id}>
                 <Link
                   to={`/workspaces/${ws.id}`}
-                  className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md"
+                  className="block rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-[var(--shadow-lift)]"
                 >
-                  <p className="font-medium text-gray-900">{ws.name}</p>
-                  <p className="mt-1 font-mono text-xs text-gray-400">{ws.id}</p>
-                  <p className="mt-3 text-sm font-medium text-blue-600">
+                  <p className="font-medium text-ink">{ws.name}</p>
+                  <p className="mt-1 font-mono text-xs text-muted">{ws.id}</p>
+                  <p className="mt-3 text-sm font-medium text-brand">
                     Abrir espacio →
                   </p>
                 </Link>

@@ -6,16 +6,19 @@ import {
   useCreateProject,
 } from '../../hooks/useWorkspaceResources';
 import { projectDetailPath } from '../../lib/workspacePaths';
+import { AddIcon, ProjectIcon } from '../icons';
 
 type Props = {
   workspaceId: string;
   selectedProjectId?: string;
   selectedMilestoneId?: string;
+  className?: string;
 };
 
 export default function WorkspaceSidebar({
   workspaceId,
   selectedProjectId,
+  className = 'flex w-64',
 }: Props) {
   const navigate = useNavigate();
   const projectsQ = useProjects(workspaceId);
@@ -34,21 +37,21 @@ export default function WorkspaceSidebar({
   };
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-3 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <aside className={`${className} shrink-0 flex-col border-r border-line bg-surface`}>
+      <div className="border-b border-line px-3 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Explorador
         </p>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3 text-sm">
-        <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted">
           Proyectos
         </div>
         {projectsQ.isPending && (
-          <p className="px-2 text-xs text-gray-500">Cargando…</p>
+          <p className="px-2 text-xs text-muted">Cargando…</p>
         )}
         {!projectsQ.isPending && projects.length === 0 && (
-          <p className="mb-2 px-2 text-xs text-amber-800">Sin proyectos.</p>
+          <p className="mb-2 px-2 text-xs text-warning">Sin proyectos.</p>
         )}
         <ul className="mb-2 space-y-0.5">
           {projects.map((p: ProjectDto) => {
@@ -60,14 +63,15 @@ export default function WorkspaceSidebar({
                   to={to}
                   end={false}
                   className={() =>
-                    `block rounded-md px-2 py-1.5 text-sm ${
+                    `flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition ${
                       isSel
-                        ? 'bg-blue-100 font-medium text-blue-900'
-                        : 'text-gray-800 hover:bg-gray-100'
+                        ? 'bg-brand-soft font-semibold text-brand-strong'
+                        : 'text-ink hover:bg-canvas'
                     }`
                   }
                 >
-                  {p.name}
+                  <ProjectIcon size={16} className={isSel ? 'text-brand' : 'text-muted'} />
+                  <span className="truncate">{p.name}</span>
                 </NavLink>
               </li>
             );
@@ -76,25 +80,26 @@ export default function WorkspaceSidebar({
 
         <form
           onSubmit={handleNewProject}
-          className="flex gap-1 border-t border-gray-100 pt-3"
+          className="flex gap-1 border-t border-line pt-3"
         >
           <input
             type="text"
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             placeholder="Nuevo proyecto…"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 flex-1 rounded-md border border-line-strong px-2 py-1.5 text-xs shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
           />
           <button
             type="submit"
             disabled={createProject.isPending || !newProjectName.trim()}
-            className="shrink-0 rounded-md bg-blue-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            aria-label="Crear proyecto"
+            className="btn-primary shrink-0 rounded-lg px-2 py-1.5"
           >
-            {createProject.isPending ? '…' : '+'}
+            {createProject.isPending ? '…' : <AddIcon size={16} strokeWidth={2.5} />}
           </button>
         </form>
         {createProject.isError && (
-          <p className="mt-1 px-1 text-xs text-red-600">
+          <p className="mt-1 px-1 text-xs text-danger">
             {(createProject.error as Error).message}
           </p>
         )}
