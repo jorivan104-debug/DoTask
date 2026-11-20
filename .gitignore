@@ -10,6 +10,7 @@ Thumbs.db
 
 # Capacitor
 android/
+!apps/android/
 ios/
 
 # Prisma
@@ -24,3 +25,7 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+*.jks
+*.keystore
+apps/desktop/dist/
+apps/desktop/node_modules/

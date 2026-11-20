@@ -114,7 +114,8 @@ export default function PrivacyPage() {
           </ul>
           <p>
             La aplicación también puede guardar archivos en tu navegador para funcionar sin conexión
-            y cargar más rápido.
+            y cargar más rápido. Las apps de Windows y Android usan estas mismas cookies: la de
+            Windows las guarda en tu equipo y la de Android, en Google Chrome.
           </p>
         </Section>
 
@@ -139,6 +140,20 @@ export default function PrivacyPage() {
             <li>
               <strong>Proveedor de alojamiento:</strong> los datos se guardan en los servidores que
               contratamos para alojar la aplicación, que los tratan solo por nuestra cuenta.
+            </li>
+            <li>
+              <strong>GitHub:</strong> aloja los instaladores de las apps de Windows y Android. Al
+              abrir la página de inicio, tu navegador consulta a GitHub qué versiones hay
+              disponibles, y al descargar una app GitHub recibe tu dirección IP según su{' '}
+              <a
+                href="https://docs.github.com/es/site-policy/privacy-policies/github-general-privacy-statement"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-blue-700 hover:underline"
+              >
+                declaración de privacidad
+              </a>
+              .
             </li>
             <li>
               <strong>Autoridades:</strong> solo cuando la ley nos obligue.

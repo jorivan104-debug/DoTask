@@ -2,7 +2,8 @@
   "name": "dotask",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/api",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {
@@ -11,7 +12,8 @@
     "build:web": "npm run build --workspace=apps/web",
     "build:api": "npm run build --workspace=apps/api",
     "test:api": "npm run test --workspace=apps/api",
-    "lint": "npm run lint --workspaces --if-present"
+    "lint": "npm run lint --workspaces --if-present",
+    "build:desktop": "npm --prefix apps/desktop run dist"
   },
   "engines": {
     "node": ">=20"

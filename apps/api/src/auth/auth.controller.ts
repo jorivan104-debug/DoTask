@@ -18,6 +18,13 @@ import { SessionService, SESSION_COOKIE, SESSION_TTL_MS } from './session.servic
 import { CurrentUser, AuthUser } from './current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { STRICT_THROTTLE } from '../common/throttle';
+import {
+  DESKTOP_CODE_PURPOSE,
+  DESKTOP_CODE_TTL_MS,
+  DesktopCode,
+  isValidChallenge,
+  verifierMatches,
+} from './desktop-login';
 
 /** Cookie temporal con `state` y verificador PKCE mientras el usuario está en Google. */
 export const OAUTH_COOKIE = 'dotask_oauth';
@@ -47,10 +54,21 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Redirige a la pantalla de consentimiento de Google. */
+  /**
+   * Redirige a la pantalla de consentimiento de Google.
+   * `?client=desktop&challenge=…` inicia el login de la app de escritorio (ver desktop-login.ts).
+   */
   @Get('login')
-  async login(@Res() res: Response) {
+  async login(
+    @Query('client') client: string | undefined,
+    @Query('challenge') challenge: string | undefined,
+    @Res() res: Response,
+  ) {
+    if (client === 'desktop' && !isValidChallenge(challenge)) {
+      return res.redirect(`${this.frontendUrl()}/login?error=escritorio`);
+    }
     const { url, pending } = await this.auth.startGoogleLogin();
+    if (client === 'desktop') pending.desktopChallenge = challenge;
     res.cookie(OAUTH_COOKIE, this.sessions.sealJson(pending, OAUTH_TTL_MS), {
       ...this.cookieOptions(),
       maxAge: OAUTH_TTL_MS,
@@ -75,10 +93,43 @@ export class AuthController {
     }
     try {
       const user = await this.auth.handleGoogleCallback(code, state, pending);
+      if (pending?.desktopChallenge) {
+        // Login iniciado por la app de escritorio: la sesión se crea dentro de la app,
+        // no en este navegador. Se entrega un código que solo la app puede canjear.
+        const desktopCode: DesktopCode = { uid: user.id, ch: pending.desktopChallenge };
+        const sealed = this.sessions.sealJson(
+          desktopCode,
+          DESKTOP_CODE_TTL_MS,
+          undefined,
+          DESKTOP_CODE_PURPOSE,
+        );
+        return res.redirect(`${this.frontendUrl()}/app/abrir?code=${encodeURIComponent(sealed)}`);
+      }
       this.setSessionCookie(res, user.id);
       return res.redirect(this.frontendUrl());
     } catch {
       return res.redirect(`${this.frontendUrl()}/login?error=google`);
+    }
+  }
+
+  /** La app de escritorio canjea aquí el código + su verificador PKCE por la cookie de sesión. */
+  @Get('desktop/exchange')
+  @Throttle(STRICT_THROTTLE)
+  async desktopExchange(
+    @Query('code') code: string | undefined,
+    @Query('verifier') verifier: string | undefined,
+    @Res() res: Response,
+  ) {
+    const payload = this.sessions.openJson<DesktopCode>(code, undefined, DESKTOP_CODE_PURPOSE);
+    if (!payload || !verifierMatches(verifier, payload.ch)) {
+      return res.redirect(`${this.frontendUrl()}/login?error=escritorio`);
+    }
+    try {
+      const user = await this.auth.findUserById(payload.uid);
+      this.setSessionCookie(res, user.id);
+      return res.redirect(this.frontendUrl());
+    } catch {
+      return res.redirect(`${this.frontendUrl()}/login?error=escritorio`);
     }
   }
 

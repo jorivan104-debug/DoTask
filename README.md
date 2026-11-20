@@ -82,6 +82,13 @@ Consultar [docs/PLAN-CONSTITUTIVO.md](docs/PLAN-CONSTITUTIVO.md) para el detalle
 - Cada ruta comprueba la membresía del espacio y la cadena proyecto → hito → lista → tarea.
 - `helmet`, límite de 120 peticiones/min por cliente y 5/min en `invitations/accept` y `dev-login`.
 
+## Apps de Windows y Android
+
+- **Windows** (`apps/desktop`): Electron que abre la web. Como Google no permite iniciar sesión en ventanas embebidas, el login se hace en el navegador del sistema y vuelve a la app con `dotask://auth` protegido con PKCE (`/v1/auth/login?client=desktop` → `/app/abrir` → `/v1/auth/desktop/exchange`).
+- **Android** (`apps/android`): Trusted Web Activity (Chrome a pantalla completa). Requiere `apps/web/public/.well-known/assetlinks.json` con la huella SHA-256 de la clave de firma.
+- **Publicación**: `.github/workflows/release-apps.yml` compila ambas y las sube a GitHub Releases al subir una etiqueta `apps-vX.Y.Z`. La página de inicio enlaza a `releases/latest/download/DoTask-Setup.exe` y `DoTask.apk`.
+- Secretos de Actions para Android: `ANDROID_KEYSTORE_BASE64` y `ANDROID_KEYSTORE_PASSWORD`. **Guarda una copia de la clave**: sin ella no se pueden publicar actualizaciones que se instalen encima de la app.
+
 ## Despliegue (Dokploy / Docker)
 
 La configuración aplicada en el repo (Compose, Traefik, variables, builds con `VITE_API_URL`, migraciones Prisma, red `dokploy-network`) está descrita en **[docs/DEPLOY-DOKPLOY.md](docs/DEPLOY-DOKPLOY.md)**.
