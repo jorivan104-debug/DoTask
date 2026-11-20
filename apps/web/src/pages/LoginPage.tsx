@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { apiFetch, ApiError } from '../lib/api';
 
@@ -96,6 +97,15 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+
+        <nav className="flex justify-center gap-4 border-t border-gray-100 pt-4 text-xs text-gray-500">
+          <Link to="/" className="hover:text-gray-900">
+            Inicio
+          </Link>
+          <Link to="/privacidad" className="hover:text-gray-900">
+            Política de privacidad
+          </Link>
+        </nav>
       </div>
     </div>
   );
